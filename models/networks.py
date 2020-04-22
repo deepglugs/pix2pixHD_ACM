@@ -4,6 +4,8 @@ import functools
 from torch.autograd import Variable
 import numpy as np
 
+from torchgan.layers import SelfAttention2d, SpectralNorm2d
+
 ###############################################################################
 # Functions
 ###############################################################################
@@ -61,6 +63,28 @@ def print_network(net):
         num_params += param.numel()
     print(net)
     print('Total number of parameters: %d' % num_params)
+
+##############
+# ACM module
+###############
+def conv3x3(in_planes, out_planes):
+    "3x3 convolution with padding"
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=1,
+                     padding=1, bias=False)
+
+# The implementation of ACM (affine combination module)
+class ACM(nn.Module): 
+    def __init__(self, channel_num, gf_dim=128):
+        super(ACM, self).__init__()
+        self.conv = conv3x3(gf_dim, 128)
+        self.conv_weight = conv3x3(128, channel_num)    # weight
+        self.conv_bias = conv3x3(128, channel_num)      # bias
+
+    def forward(self, x, img):
+        out_code = self.conv(img)
+        out_code_weight = self.conv_weight(out_code)
+        out_code_bias = self.conv_bias(out_code)
+        return x * out_code_weight + out_code_bias
 
 ##############################################################################
 # Losses
@@ -194,22 +218,25 @@ class GlobalGenerator(nn.Module):
             model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1),
                       norm_layer(ngf * mult * 2), activation]
 
+        ### self attention
+        model += [SelfAttention2d(ngf * 2 ** (n_downsampling-1) * 2)]
+
         ### resnet blocks
         mult = 2**n_downsampling
         for i in range(n_blocks):
             model += [ResnetBlock(ngf * mult, padding_type=padding_type, activation=activation, norm_layer=norm_layer)]
-        
-        ### upsample         
+
+        ### upsample
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=2, padding=1, output_padding=1),
                        norm_layer(int(ngf * mult / 2)), activation]
         model += [nn.ReflectionPad2d(3), nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0), nn.Tanh()]        
         self.model = nn.Sequential(*model)
-            
+
     def forward(self, input):
-        return self.model(input)             
-        
+        return self.model(input)
+
 # Define a resnet block
 class ResnetBlock(nn.Module):
     def __init__(self, dim, padding_type, norm_layer, activation=nn.ReLU(True), use_dropout=False):
@@ -254,35 +281,40 @@ class ResnetBlock(nn.Module):
 
 class Encoder(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsampling=4, norm_layer=nn.BatchNorm2d):
-        super(Encoder, self).__init__()        
-        self.output_nc = output_nc        
+        super(Encoder, self).__init__()
+        self.output_nc = output_nc
 
         model = [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0), 
-                 norm_layer(ngf), nn.ReLU(True)]             
+                 norm_layer(ngf), nn.ReLU(True)]
         ### downsample
         for i in range(n_downsampling):
             mult = 2**i
             model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1),
                       norm_layer(ngf * mult * 2), nn.ReLU(True)]
 
-        ### upsample         
+        ### upsample
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=2, padding=1, output_padding=1),
-                       norm_layer(int(ngf * mult / 2)), nn.ReLU(True)]        
+            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+                                         kernel_size=3,
+                                         stride=2,
+                                         padding=1,
+                                         output_padding=1),
+                       norm_layer(int(ngf * mult / 2)),
+                       nn.ReLU(True)]
 
         model += [nn.ReflectionPad2d(3), nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0), nn.Tanh()]
-        self.model = nn.Sequential(*model) 
+        self.model = nn.Sequential(*model)
 
     def forward(self, input, inst):
         outputs = self.model(input)
 
         # instance-wise average pooling
         outputs_mean = outputs.clone()
-        inst_list = np.unique(inst.cpu().numpy().astype(int))        
+        inst_list = np.unique(inst.cpu().numpy().astype(int))
         for i in inst_list:
             for b in range(input.size()[0]):
-                indices = (inst[b:b+1] == int(i)).nonzero() # n x 4            
+                indices = (inst[b:b+1] == int(i)).nonzero() # n x 4
                 for j in range(self.output_nc):
                     output_ins = outputs[indices[:,0] + b, indices[:,1] + j, indices[:,2], indices[:,3]]                    
                     mean_feat = torch.mean(output_ins).expand_as(output_ins)                                        
@@ -296,12 +328,12 @@ class MultiscaleDiscriminator(nn.Module):
         self.num_D = num_D
         self.n_layers = n_layers
         self.getIntermFeat = getIntermFeat
-     
+
         for i in range(num_D):
             netD = NLayerDiscriminator(input_nc, ndf, n_layers, norm_layer, use_sigmoid, getIntermFeat)
-            if getIntermFeat:                                
+            if getIntermFeat:
                 for j in range(n_layers+2):
-                    setattr(self, 'scale'+str(i)+'_layer'+str(j), getattr(netD, 'model'+str(j)))                                   
+                    setattr(self, 'scale'+str(i)+'_layer'+str(j), getattr(netD, 'model'+str(j)))
             else:
                 setattr(self, 'layer'+str(i), netD.model)
 

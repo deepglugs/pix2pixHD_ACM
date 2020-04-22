@@ -2,6 +2,18 @@ import os
 import torch
 import sys
 
+
+def restore_parts(state_dict_target, state_dict_from):
+    for name, param in state_dict_from.items():
+        if name not in state_dict_target:
+            continue
+        # if isinstance(param, Parameter):
+        #    param = param.data
+        state_dict_target[name].copy_(param)
+
+    return state_dict_target
+
+
 class BaseModel(torch.nn.Module):
     def name(self):
         return 'BaseModel'
@@ -47,7 +59,7 @@ class BaseModel(torch.nn.Module):
             network.cuda()
 
     # helper loading function that can be used by subclasses
-    def load_network(self, network, network_label, epoch_label, save_dir=''):        
+    def load_network(self, network, network_label, epoch_label, save_dir=''):
         save_filename = '%s_net_%s.pth' % (epoch_label, network_label)
         if not save_dir:
             save_dir = self.save_dir
@@ -60,9 +72,15 @@ class BaseModel(torch.nn.Module):
             #network.load_state_dict(torch.load(save_path))
             try:
                 network.load_state_dict(torch.load(save_path))
-            except:   
-                pretrained_dict = torch.load(save_path)                
+            except:
+
+                pretrained_dict = torch.load(save_path)
+
                 model_dict = network.state_dict()
+
+                # model_dict = restore_parts(model_dict, pretrained_dict)
+                # network.load_state_dict(model_dict)
+
                 try:
                     pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}                    
                     network.load_state_dict(pretrained_dict)
@@ -78,14 +96,15 @@ class BaseModel(torch.nn.Module):
                         not_initialized = set()
                     else:
                         from sets import Set
-                        not_initialized = Set()                    
+                        not_initialized = Set()
 
                     for k, v in model_dict.items():
                         if k not in pretrained_dict or v.size() != pretrained_dict[k].size():
                             not_initialized.add(k.split('.')[0])
-                    
+
                     print(sorted(not_initialized))
-                    network.load_state_dict(model_dict)                  
+                    network.load_state_dict(model_dict)
+
 
     def update_learning_rate():
         pass
