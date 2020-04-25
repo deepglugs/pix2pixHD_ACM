@@ -27,13 +27,14 @@ def get_norm_layer(norm_type='instance'):
     return norm_layer
 
 def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_global=9, n_local_enhancers=1, 
-             n_blocks_local=3, norm='instance', gpu_ids=[]):    
+             n_blocks_local=3, norm='instance', cond=False, n_self_attention=1, gpu_ids=[]):    
     norm_layer = get_norm_layer(norm_type=norm)     
     if netG == 'global':    
-        netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)       
+        netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer, cond=cond,
+                               n_self_attention=n_self_attention)
     elif netG == 'local':        
         netG = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, 
-                                  n_local_enhancers, n_blocks_local, norm_layer)
+                                  n_local_enhancers, n_blocks_local, norm_layer, cond=cond)
     elif netG == 'encoder':
         netG = Encoder(input_nc, output_nc, ngf, n_downsample_global, norm_layer)
     else:
@@ -45,9 +46,9 @@ def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_glo
     netG.apply(weights_init)
     return netG
 
-def define_D(input_nc, ndf, n_layers_D, norm='instance', use_sigmoid=False, num_D=1, getIntermFeat=False, gpu_ids=[]):        
+def define_D(input_nc, ndf, n_layers_D, norm='instance', use_sigmoid=False, num_D=1, getIntermFeat=False, n_self_attention=1, gpu_ids=[]):        
     norm_layer = get_norm_layer(norm_type=norm)   
-    netD = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, getIntermFeat)   
+    netD = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, getIntermFeat, n_self_attention)   
     print(netD)
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())
@@ -73,18 +74,35 @@ def conv3x3(in_planes, out_planes):
                      padding=1, bias=False)
 
 # The implementation of ACM (affine combination module)
-class ACM(nn.Module): 
-    def __init__(self, channel_num, gf_dim=128):
+class ACM(nn.Module):
+    def __init__(self, channel_num, gf_dim=3):
         super(ACM, self).__init__()
         self.conv = conv3x3(gf_dim, 128)
         self.conv_weight = conv3x3(128, channel_num)    # weight
         self.conv_bias = conv3x3(128, channel_num)      # bias
 
-    def forward(self, x, img):
+    def forward(self, labels, img):
+        # print("ACM forward...")
+
         out_code = self.conv(img)
         out_code_weight = self.conv_weight(out_code)
         out_code_bias = self.conv_bias(out_code)
-        return x * out_code_weight + out_code_bias
+
+        # pad_len = out_code_weight.size(3) - labels.size(2)
+
+        # padding = torch.zeros((labels.size(0), 1, pad_len),
+        #                      device=labels.device,
+        #                      dtype=torch.float)
+        # print(f"padding shape: {padding.size()}")
+        # labels = torch.cat((labels.float(), padding), dim=2)
+        labels = labels.view(-1, 1, 1, labels.size(2))
+
+        # print(f"labels shape: {labels.size()}")
+        # print(f"out_code_weight shape: {out_code_weight.size()}")
+        # print(f"out_code shape: {out_code.size()}")
+        # print(f"out_code_bias shape: {out_code_bias.size()}")
+
+        return labels * out_code_weight + out_code_bias
 
 ##############################################################################
 # Losses
@@ -152,19 +170,21 @@ class VGGLoss(nn.Module):
 ##############################################################################
 class LocalEnhancer(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsample_global=3, n_blocks_global=9, 
-                 n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect'):        
+                 n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False):        
         super(LocalEnhancer, self).__init__()
         self.n_local_enhancers = n_local_enhancers
         
         ###### global generator model #####           
         ngf_global = ngf * (2**n_local_enhancers)
-        model_global = GlobalGenerator(input_nc, output_nc, ngf_global, n_downsample_global, n_blocks_global, norm_layer).model        
+        model_global = GlobalGenerator(input_nc, output_nc, ngf_global,
+                                       n_downsample_global, n_blocks_global,
+                                       norm_layer, cond=cond).model
         model_global = [model_global[i] for i in range(len(model_global)-3)] # get rid of final convolution layers        
-        self.model = nn.Sequential(*model_global)                
+        self.model = nn.Sequential(*model_global)
 
         ###### local enhancer layers #####
         for n in range(1, n_local_enhancers+1):
-            ### downsample            
+            ### downsample
             ngf_global = ngf * (2**(n_local_enhancers-n))
             model_downsample = [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf_global, kernel_size=7, padding=0), 
                                 norm_layer(ngf_global), nn.ReLU(True),
@@ -177,10 +197,10 @@ class LocalEnhancer(nn.Module):
 
             ### upsample
             model_upsample += [nn.ConvTranspose2d(ngf_global * 2, ngf_global, kernel_size=3, stride=2, padding=1, output_padding=1), 
-                               norm_layer(ngf_global), nn.ReLU(True)]      
+                               norm_layer(ngf_global), nn.ReLU(True)]
 
             ### final convolution
-            if n == n_local_enhancers:                
+            if n == n_local_enhancers:
                 model_upsample += [nn.ReflectionPad2d(3), nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0), nn.Tanh()]                       
             
             setattr(self, 'model'+str(n)+'_1', nn.Sequential(*model_downsample))
@@ -204,14 +224,29 @@ class LocalEnhancer(nn.Module):
             output_prev = model_upsample(model_downsample(input_i) + output_prev)
         return output_prev
 
+class MultiSequential(nn.Sequential):
+    def forward(self, *inputs):
+        for module in self._modules.values():
+            if type(inputs) == tuple:
+                inputs = module(*inputs)
+            else:
+                inputs = module(inputs)
+        return inputs
+
 class GlobalGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, n_downsampling=3, n_blocks=9, norm_layer=nn.BatchNorm2d, 
-                 padding_type='reflect'):
+                 padding_type='reflect', cond=False, n_self_attention=1):
         assert(n_blocks >= 0)
-        super(GlobalGenerator, self).__init__()        
-        activation = nn.ReLU(True)        
+        super(GlobalGenerator, self).__init__()
+        activation  = nn.ReLU(True)
 
-        model = [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0), norm_layer(ngf), activation]
+        self.cond = cond
+
+        model = []
+        if self.cond:
+            model = [ACM(ngf)]
+
+        model += [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0), norm_layer(ngf), activation]
         ### downsample
         for i in range(n_downsampling):
             mult = 2**i
@@ -219,7 +254,8 @@ class GlobalGenerator(nn.Module):
                       norm_layer(ngf * mult * 2), activation]
 
         ### self attention
-        model += [SelfAttention2d(ngf * 2 ** (n_downsampling-1) * 2)]
+        for i in range(n_self_attention):
+            model += [SelfAttention2d(ngf * 2 ** (n_downsampling-1) * 2)]
 
         ### resnet blocks
         mult = 2**n_downsampling
@@ -232,10 +268,14 @@ class GlobalGenerator(nn.Module):
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=2, padding=1, output_padding=1),
                        norm_layer(int(ngf * mult / 2)), activation]
         model += [nn.ReflectionPad2d(3), nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0), nn.Tanh()]        
-        self.model = nn.Sequential(*model)
+        if self.cond:
+            self.model = MultiSequential(*model)
+        else:
+            self.model = nn.Sequential(*model)
 
-    def forward(self, input):
-        return self.model(input)
+    def forward(self, *input):
+        return self.model(*input)
+
 
 # Define a resnet block
 class ResnetBlock(nn.Module):
@@ -323,14 +363,14 @@ class Encoder(nn.Module):
 
 class MultiscaleDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, 
-                 use_sigmoid=False, num_D=3, getIntermFeat=False):
+                 use_sigmoid=False, num_D=3, getIntermFeat=False, n_self_attention=1):
         super(MultiscaleDiscriminator, self).__init__()
         self.num_D = num_D
         self.n_layers = n_layers
         self.getIntermFeat = getIntermFeat
 
         for i in range(num_D):
-            netD = NLayerDiscriminator(input_nc, ndf, n_layers, norm_layer, use_sigmoid, getIntermFeat)
+            netD = NLayerDiscriminator(input_nc, ndf, n_layers, norm_layer, use_sigmoid, getIntermFeat, n_self_attention)
             if getIntermFeat:
                 for j in range(n_layers+2):
                     setattr(self, 'scale'+str(i)+'_layer'+str(j), getattr(netD, 'model'+str(j)))
@@ -364,10 +404,12 @@ class MultiscaleDiscriminator(nn.Module):
         
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False,
+                 n_self_attention=1):
         super(NLayerDiscriminator, self).__init__()
         self.getIntermFeat = getIntermFeat
         self.n_layers = n_layers
+        self.n_self_attention=n_self_attention
 
         kw = 4
         padw = int(np.ceil((kw-1.0)/2))
@@ -384,7 +426,11 @@ class NLayerDiscriminator(nn.Module):
 
         nf_prev = nf
         nf = min(nf * 2, 512)
+
+        # TODO: use n_self_attention and increase number of self attention layers
+
         sequence += [[
+            SelfAttention2d(nf_prev),
             nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
             norm_layer(nf),
             nn.LeakyReLU(0.2, True)

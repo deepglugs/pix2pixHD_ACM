@@ -40,7 +40,7 @@ print('#training images = %d' % dataset_size)
 
 model = create_model(opt)
 visualizer = Visualizer(opt)
-if opt.fp16:    
+if opt.fp16:
     from apex import amp
     model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1')             
     model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
@@ -66,8 +66,15 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         # whether to collect output images
         save_fake = total_steps % opt.display_freq == display_delta
 
+        #inst_map = data['inst']
+
+        # print(f"inst_map: {inst_map}")
+
+        #if not opt.cond:
+        inst_map = Variable(data['inst']).cuda()
+
         ############## Forward Pass ######################
-        losses, generated = model(Variable(data['label']), Variable(data['inst']), 
+        losses, generated = model(Variable(data['label']), inst_map,
             Variable(data['image']), Variable(data['feat']), infer=save_fake)
 
         # sum per device losses
