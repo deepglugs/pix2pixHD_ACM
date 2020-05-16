@@ -161,36 +161,65 @@ def load_image(img_file, shape, normalize=True, pixel_format='RGB'):
     return img
 
 
-def get_txt_from_img_fn(img_fn, txts):
+class OthersMap:
+    bn_others = {}
 
-    img_bn = os.path.basename(img_fn)
+
+def get_txt_from_img_fn(img_fn, others):
+    return get_other(img_fn, others)
+
+
+def get_other(source, others):
+
+    img_bn = os.path.basename(source)
     img_bn = os.path.splitext(img_bn)[0]
 
-    for txt in txts:
-        bn = os.path.basename(txt)
+    if source in OthersMap.bn_others:
+        return OthersMap.bn_others[source]
+
+    for other in others:
+        bn = os.path.basename(other)
         bn = os.path.splitext(bn)[0]
 
         # print(f"comparing {bn} ==? {img_bn}")
 
         if bn == img_bn:
-            return txt
+            OthersMap.bn_others[source] = other
+            return other
 
-def encode_txt(txt_file, max_size):
-    from transformers import GPT2TokenizerFast
+
+def encode_txt(txt_file, max_size=512, model='gpt2'):
+    from transformers import GPT2Tokenizer
+
+    import logging
+    logging.basicConfig(level=logging.ERROR)
+    logging.getLogger("transformers.tokenization_gpt2").setLevel(logging.ERROR)
+    loggers = [logging.getLogger()]  # get the root logger
+    loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+
+    for logger in loggers:
+        logger.setLevel(logging.ERROR)
+
     with open(txt_file, 'r') as f:
-        inst_tensor = f.read()
-        inst_tensor = inst_tensor.replace('\n','')
+        data = f.read()
+        inst_tensor = data
+        inst_tensor = inst_tensor.replace('\n', '')
 
-        # inst_tensor = inst_tensor.split(',')
-        tokenizer = GPT2TokenizerFast.from_pretrained('gpt2',
-                                                      pad_token='0')
+        inst_tensor = inst_tensor.split(',')
 
+        # print(f"trying to use tokenizer from {model}")
+
+        tokenizer = GPT2Tokenizer.from_pretrained(model,
+                                                  pad_token='0')
 
         inst_tensor = tokenizer.encode(inst_tensor,
                                        add_prefix_space=True,
                                        max_length=max_size,
                                        pad_to_max_length=True,
                                        return_tensors='pt')
+
+        # print(data)
+        # print(inst_tensor)
 
         pad_len = max_size - inst_tensor.size(1)
 
@@ -201,6 +230,7 @@ def encode_txt(txt_file, max_size):
         inst_tensor = torch.cat((inst_tensor.float(), padding), dim=1)
 
         return inst_tensor
+
 
 def test_onehot_to_image():
 

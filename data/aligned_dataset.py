@@ -80,7 +80,8 @@ class AlignedDataset(BaseDataset):
 
             assert label_file, f"could not find labels for {self.A_paths[index]}"
 
-            inst_tensor = encode_txt(label_file, A_tensor.size(2))
+            inst_tensor = encode_txt(label_file, A_tensor.size(2),
+                                     model=self.opt.tokenizer)
 
         input_dict = {'label': A_tensor, 'inst': inst_tensor, 'image': B_tensor,
                       'feat': feat_tensor, 'path': A_path}
