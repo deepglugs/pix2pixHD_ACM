@@ -34,6 +34,7 @@ class Pix2PixHDModel(BaseModel):
             netG_input_nc += opt.feat_num
         if opt.cond:
             netG_input_nc = opt.ngf
+
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG,
                                       opt.n_downsample_global, opt.n_blocks_global, opt.n_local_enhancers,
                                       opt.n_blocks_local, opt.norm, cond=opt.cond, n_self_attention=opt.n_self_attention,
@@ -50,8 +51,8 @@ class Pix2PixHDModel(BaseModel):
 
         # Encoder network
         if self.gen_features:
-            self.netE = networks.define_G(opt.output_nc, opt.feat_num, opt.nef, 'encoder',
-                                          opt.n_downsample_E, norm=opt.norm, gpu_ids=self.gpu_ids)
+            self.netE = networks.define_G(netG_input_nc, opt.feat_num, opt.nef, 'encoder',
+                                          opt.n_downsample_E, norm=opt.norm, cond=opt.cond, gpu_ids=self.gpu_ids)
         if self.opt.verbose:
             print('---------- Networks initialized -------------')
 
@@ -146,14 +147,16 @@ class Pix2PixHDModel(BaseModel):
             real_image = Variable(real_image.data.cuda())
 
         # instance map for feature encoding
+        """
         if self.use_features:
             # get precomputed feature maps
             if self.opt.load_features:
                 feat_map = Variable(feat_map.data.cuda())
             if self.opt.label_feat:
                 inst_map = label_map.cuda()
+        """
 
-        if self.opt.cond:
+        if self.use_features or self.opt.cond:
             inst_map = inst_map.cuda()
 
         return input_label, inst_map, real_image, feat_map
@@ -176,13 +179,13 @@ class Pix2PixHDModel(BaseModel):
         # Fake Generation
         if self.use_features:
             if not self.opt.load_features:
-                feat_map = self.netE.forward(real_image, inst_map)
+                feat_map = self.netE.forward(inst_map, real_image)
             input_concat = torch.cat((input_label, feat_map), dim=1)
         else:
             input_concat = input_label
 
         if self.opt.cond:
-            fake_image = self.netG.forward(inst_map, input_label)
+            fake_image = self.netG.forward(inst_map, input_concat)
         else:
             fake_image = self.netG.forward(input_concat)
 

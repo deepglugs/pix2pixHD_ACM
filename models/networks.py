@@ -42,7 +42,8 @@ def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_glo
                                n_self_attention=n_self_attention)
     elif netG == 'local':
         netG = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global,
-                             n_local_enhancers, n_blocks_local, norm_layer, cond=cond)
+                             n_local_enhancers, n_blocks_local, norm_layer, cond=cond,
+                             n_self_attention=n_self_attention)
     elif netG == 'encoder':
         netG = Encoder(input_nc, output_nc, ngf,
                        n_downsample_global, norm_layer)
@@ -97,8 +98,18 @@ class ACM(nn.Module):
         self.conv_weight = conv3x3(128, channel_num)    # weight
         self.conv_bias = conv3x3(128, channel_num)      # bias
 
+        text_encoder = [nn.Linear(512, 1024),
+                        nn.Linear(1024, 512),
+                        nn.Linear(512, 256),
+                        nn.Linear(256, 128),
+                        nn.Linear(128, 256),
+                        nn.Linear(256, 512)]
+        self.txt_encoder = nn.Sequential(*text_encoder)
+
     def forward(self, labels, img):
         # print("ACM forward...")
+        # print(labels.size())
+        # print(img.size())
 
         out_code = self.conv(img)
         out_code_weight = self.conv_weight(out_code)
@@ -111,6 +122,9 @@ class ACM(nn.Module):
         #                      dtype=torch.float)
         # print(f"padding shape: {padding.size()}")
         # labels = torch.cat((labels.float(), padding), dim=2)
+
+        labels = self.txt_encoder(labels)
+
         if len(labels.size()) > 2:
             labels = labels.view(-1, 1, 1, labels.size(2))
 
@@ -195,7 +209,8 @@ class VGGLoss(nn.Module):
 
 class LocalEnhancer(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsample_global=3, n_blocks_global=9,
-                 n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False):
+                 n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False,
+                 n_self_attention=0):
         super(LocalEnhancer, self).__init__()
         self.n_local_enhancers = n_local_enhancers
         self.cond = cond
@@ -204,7 +219,8 @@ class LocalEnhancer(nn.Module):
         ngf_global = ngf * (2**n_local_enhancers)
         model_global = GlobalGenerator(input_nc, output_nc, ngf_global,
                                        n_downsample_global, n_blocks_global,
-                                       norm_layer).model
+                                       norm_layer,
+                                       n_self_attention=n_self_attention).model
         # get rid of final convolution layers
         model_global = [model_global[i] for i in range(len(model_global)-3)]
         self.model = nn.Sequential(*model_global)
@@ -284,7 +300,7 @@ class MultiSequential(nn.Sequential):
 
 class GlobalGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, n_downsampling=3, n_blocks=9, norm_layer=nn.BatchNorm2d,
-                 padding_type='reflect', cond=False, n_self_attention=1):
+                 padding_type='reflect', cond=False, n_self_attention=0):
         assert(n_blocks >= 0)
         super(GlobalGenerator, self).__init__()
         activation = nn.ReLU(True)
@@ -319,7 +335,7 @@ class GlobalGenerator(nn.Module):
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=2, padding=1, output_padding=1),
                       norm_layer(int(ngf * mult / 2)), activation]
         model += [nn.ReflectionPad2d(3), SNConv2d(ngf,
-                                                   output_nc, kernel_size=7, padding=0), nn.Tanh()]
+                                                  output_nc, kernel_size=7, padding=0), nn.Tanh()]
         if self.cond:
             self.model = MultiSequential(*model)
         else:
@@ -380,8 +396,10 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.output_nc = output_nc
 
-        model = [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0),
-                 norm_layer(ngf), nn.ReLU(True)]
+        model = [ACM(ngf)]
+
+        model += [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0),
+                  norm_layer(ngf), nn.ReLU(True)]
         # downsample
         for i in range(n_downsampling):
             mult = 2**i
@@ -401,24 +419,10 @@ class Encoder(nn.Module):
 
         model += [nn.ReflectionPad2d(3), nn.Conv2d(ngf,
                                                    output_nc, kernel_size=7, padding=0), nn.Tanh()]
-        self.model = nn.Sequential(*model)
+        self.model = MultiSequential(*model)
 
-    def forward(self, input, inst):
-        outputs = self.model(input)
-
-        # instance-wise average pooling
-        outputs_mean = outputs.clone()
-        inst_list = np.unique(inst.cpu().numpy().astype(int))
-        for i in inst_list:
-            for b in range(input.size()[0]):
-                indices = (inst[b:b+1] == int(i)).nonzero()  # n x 4
-                for j in range(self.output_nc):
-                    output_ins = outputs[indices[:, 0] + b,
-                                         indices[:, 1] + j, indices[:, 2], indices[:, 3]]
-                    mean_feat = torch.mean(output_ins).expand_as(output_ins)
-                    outputs_mean[indices[:, 0] + b, indices[:, 1] +
-                                 j, indices[:, 2], indices[:, 3]] = mean_feat
-        return outputs_mean
+    def forward(self, *input):
+        return self.model(*input)
 
 
 class MultiscaleDiscriminator(nn.Module):

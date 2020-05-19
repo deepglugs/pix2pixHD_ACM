@@ -1,3 +1,4 @@
+import copy
 import os
 import numpy as np
 
@@ -52,6 +53,8 @@ def do_generate(opt, model=None):
         img_files = [img_file]
     else:
         img_files = get_images(img_file)
+
+    label_files = []
 
     if opt.label is not None:
         if os.path.isfile(opt.label):
@@ -110,8 +113,6 @@ def do_template(opt):
     opt.label_nc = 0
     opt.no_instance = True
 
-    original_opt = opt
-
     with open(opt.template) as f:
         template = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -123,6 +124,8 @@ def do_template(opt):
     if "labels_path" in template:
         labels_dir = os.path.join(template_dirname, template['labels_path'])
         opt.label = labels_dir
+
+    original_opt = copy.deepcopy(opt)
 
     model_opts = {}
 

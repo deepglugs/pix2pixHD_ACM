@@ -195,7 +195,8 @@ def encode_txt(txt_file, max_size=512, model='gpt2'):
     logging.basicConfig(level=logging.ERROR)
     logging.getLogger("transformers.tokenization_gpt2").setLevel(logging.ERROR)
     loggers = [logging.getLogger()]  # get the root logger
-    loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    loggers = loggers + [logging.getLogger(name)
+                         for name in logging.root.manager.loggerDict]
 
     for logger in loggers:
         logger.setLevel(logging.ERROR)

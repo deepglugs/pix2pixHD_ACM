@@ -8,20 +8,22 @@ from data.gan_utils import get_txt_from_img_fn, encode_txt
 class AlignedDataset(BaseDataset):
     def initialize(self, opt):
         self.opt = opt
-        self.root = opt.dataroot    
+        self.root = opt.dataroot
 
-        ### input A (label maps)
+        # input A (label maps)
         dir_A = '_A' if self.opt.label_nc == 0 else '_label'
         self.dir_A = os.path.join(opt.dataroot, opt.phase + dir_A)
         self.A_paths = sorted(make_dataset(self.dir_A))
 
-        ### input B (real images)
+        # input B (real images)
         if opt.isTrain or opt.use_encoded_image:
             dir_B = '_B' if self.opt.label_nc == 0 else '_img'
             self.dir_B = os.path.join(opt.dataroot, opt.phase + dir_B)
             self.B_paths = sorted(make_dataset(self.dir_B))
 
-        if opt.cond:
+        self.label_files = []
+
+        if opt.cond or opt.label_feat:
             from transformers import GPT2TokenizerFast
             self.dir_tags = os.path.join(opt.dataroot, "tags")
             self.label_files = sorted(make_dataset(self.dir_tags,
@@ -29,21 +31,22 @@ class AlignedDataset(BaseDataset):
 
             assert len(self.label_files), f"Could not find any label files in {opt.dataroot}"
 
-        ### instance maps
+        # instance maps
         if not opt.no_instance:
             self.dir_inst = os.path.join(opt.dataroot, opt.phase + '_inst')
             self.inst_paths = sorted(make_dataset(self.dir_inst))
 
-        ### load precomputed instance-wise encoded features
-        if opt.load_features:                              
+        # load precomputed instance-wise encoded features
+        if opt.load_features:
             self.dir_feat = os.path.join(opt.dataroot, opt.phase + '_feat')
-            print('----------- loading features from %s ----------' % self.dir_feat)
+            print('----------- loading features from %s ----------' %
+                  self.dir_feat)
             self.feat_paths = sorted(make_dataset(self.dir_feat))
 
-        self.dataset_size = len(self.A_paths) 
-      
+        self.dataset_size = len(self.A_paths)
+
     def __getitem__(self, index):
-        ### input A (label maps)
+        # input A (label maps)
         A_path = self.A_paths[index]
         A = Image.open(A_path)
         params = get_params(self.opt, A.size)
@@ -51,18 +54,19 @@ class AlignedDataset(BaseDataset):
             transform_A = get_transform(self.opt, params)
             A_tensor = transform_A(A.convert('RGB'))
         else:
-            transform_A = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
+            transform_A = get_transform(
+                self.opt, params, method=Image.NEAREST, normalize=False)
             A_tensor = transform_A(A) * 255.0
 
         B_tensor = inst_tensor = feat_tensor = 0
-        ### input B (real images)
+        # input B (real images)
         if self.opt.isTrain or self.opt.use_encoded_image:
             B_path = self.B_paths[index]
             B = Image.open(B_path).convert('RGB')
             transform_B = get_transform(self.opt, params)
             B_tensor = transform_B(B)
 
-        ### if using instance maps
+        # if using instance maps
         if not self.opt.no_instance:
             inst_path = self.inst_paths[index]
             inst = Image.open(inst_path)
@@ -74,12 +78,10 @@ class AlignedDataset(BaseDataset):
                 norm = normalize()
                 feat_tensor = norm(transform_A(feat))
 
-        if self.opt.cond:
-            label_file = get_txt_from_img_fn(self.A_paths[index],
-                                             self.label_files)
+        label_file = get_txt_from_img_fn(self.A_paths[index],
+                                         self.label_files)
 
-            assert label_file, f"could not find labels for {self.A_paths[index]}"
-
+        if label_file is not None:
             inst_tensor = encode_txt(label_file, A_tensor.size(2),
                                      model=self.opt.tokenizer)
 
