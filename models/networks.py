@@ -125,6 +125,10 @@ class ACM(nn.Module):
 
         labels = self.txt_encoder(labels)
 
+        # Maybe randomize the labels?
+        # idx = torch.randperm(labels.nelement())
+        # labels = labels.view(-1)[idx].view(tlabels.size())
+
         if len(labels.size()) > 2:
             labels = labels.view(-1, 1, 1, labels.size(2))
 

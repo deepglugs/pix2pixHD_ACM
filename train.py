@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 from collections import OrderedDict
-from subprocess import call
+
 import fractions
 def lcm(a,b): return abs(a * b)/fractions.gcd(a,b) if a and b else 0
 
@@ -21,8 +21,8 @@ if opt.continue_train:
         start_epoch, epoch_iter = np.loadtxt(iter_path , delimiter=',', dtype=int)
     except:
         start_epoch, epoch_iter = 1, 0
-    print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))        
-else:    
+    print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))
+else:
     start_epoch, epoch_iter = 1, 0
 
 opt.print_freq = lcm(opt.print_freq, opt.batchSize)    
@@ -42,7 +42,8 @@ model = create_model(opt)
 visualizer = Visualizer(opt)
 if opt.fp16:
     from apex import amp
-    model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1')             
+    model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1',
+                                                       keep_batchnorm_fp32=False)
     model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
 else:
     optimizer_G, optimizer_D = model.module.optimizer_G, model.module.optimizer_D
@@ -88,28 +89,28 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ############### Backward Pass ####################
         # update generator weights
         optimizer_G.zero_grad()
-        if opt.fp16:                                
-            with amp.scale_loss(loss_G, optimizer_G) as scaled_loss: scaled_loss.backward()                
+        if opt.fp16:
+            with amp.scale_loss(loss_G, optimizer_G) as scaled_loss: scaled_loss.backward()
         else:
             loss_G.backward()          
         optimizer_G.step()
 
         # update discriminator weights
         optimizer_D.zero_grad()
-        if opt.fp16:                                
-            with amp.scale_loss(loss_D, optimizer_D) as scaled_loss: scaled_loss.backward()                
+        if opt.fp16:
+            with amp.scale_loss(loss_D, optimizer_D) as scaled_loss: scaled_loss.backward()
         else:
-            loss_D.backward()        
-        optimizer_D.step()        
+            loss_D.backward()
+        optimizer_D.step()
 
         ############## Display results and errors ##########
         ### print out errors
         if total_steps % opt.print_freq == print_delta:
-            errors = {k: v.data.item() if not isinstance(v, int) else v for k, v in loss_dict.items()}            
+            errors = {k: v.data.item() if not isinstance(v, int) else v for k, v in loss_dict.items()}
             t = (time.time() - iter_start_time) / opt.print_freq
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
             visualizer.plot_current_errors(errors, total_steps)
-            #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"]) 
+            #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"])
 
         ### display output images
         if save_fake:
@@ -121,7 +122,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ### save latest model
         if total_steps % opt.save_latest_freq == save_delta:
             print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
-            model.module.save('latest')            
+            model.module.save('latest')
             np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
 
         if epoch_iter >= dataset_size:

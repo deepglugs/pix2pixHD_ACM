@@ -48,7 +48,12 @@ class AlignedDataset(BaseDataset):
     def __getitem__(self, index):
         # input A (label maps)
         A_path = self.A_paths[index]
-        A = Image.open(A_path)
+        try:
+            A = Image.open(A_path)
+        except Exception as ex:
+            print(f"error opening {A_path}: {ex}")
+            raise Exception(ex)
+
         params = get_params(self.opt, A.size)
         if self.opt.label_nc == 0:
             transform_A = get_transform(self.opt, params)
@@ -62,7 +67,11 @@ class AlignedDataset(BaseDataset):
         # input B (real images)
         if self.opt.isTrain or self.opt.use_encoded_image:
             B_path = self.B_paths[index]
-            B = Image.open(B_path).convert('RGB')
+            try:
+                B = Image.open(B_path).convert('RGB')
+            except Exception as ex:
+                print(f"error opening {B_path}: {ex}")
+                raise Exception(ex)
             transform_B = get_transform(self.opt, params)
             B_tensor = transform_B(B)
 

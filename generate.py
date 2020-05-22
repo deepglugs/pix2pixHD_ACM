@@ -94,7 +94,7 @@ def do_generate(opt, model=None):
 
             label = encode_txt(label, model=opt.tokenizer)
 
-        generated = model.forward(img.view(1, 3, *shape), label)
+        generated = model.inference(img.view(1, 3, *shape), label)
 
         img_out = Image.fromarray(
             util.tensor2im(generated.data[0]))

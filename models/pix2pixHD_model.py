@@ -233,7 +233,7 @@ class Pix2PixHDModel(BaseModel):
         if self.use_features:
             if self.opt.use_encoded_image:
                 # encode the real image to get feature map
-                feat_map = self.netE.forward(real_image, inst_map)
+                feat_map = self.netE.forward(inst_map, real_image)
             else:
                 # sample clusters from precomputed features
                 feat_map = self.sample_features(inst_map)
@@ -247,7 +247,7 @@ class Pix2PixHDModel(BaseModel):
         elif not self.opt.cond:
             fake_image = self.netG.forward(input_concat)
         else:
-            fake_image = self.netG.forward(inst_map, input_label)
+            fake_image = self.netG.forward(inst_map, input_concat)
         return fake_image
 
     def sample_features(self, inst):
