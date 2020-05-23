@@ -88,22 +88,39 @@ def conv3x3(in_planes, out_planes):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=1,
                      padding=1, bias=False)
 
+
+class Reshape(nn.Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
+
+    def forward(self, x):
+        # print(x.size())
+        return x.view(-1, *self.shape)
+
+
 # The implementation of ACM (affine combination module)
-
-
 class ACM(nn.Module):
     def __init__(self, channel_num, gf_dim=3):
         super(ACM, self).__init__()
+        self.ngf = channel_num
         self.conv = conv3x3(gf_dim, 128)
         self.conv_weight = conv3x3(128, channel_num)    # weight
         self.conv_bias = conv3x3(128, channel_num)      # bias
 
-        text_encoder = [nn.Linear(512, 1024),
-                        nn.Linear(1024, 512),
-                        nn.Linear(512, 256),
-                        nn.Linear(256, 128),
-                        nn.Linear(128, 256),
-                        nn.Linear(256, 512)]
+        # todo: use actual img width/height:
+        init_w = 512 // 4
+        init_h = 512 // 4
+        dl = self.ngf * init_w * init_h
+        text_encoder = [nn.Linear(512, dl),
+                        Reshape(self.ngf, init_w, init_h),
+                        nn.ConvTranspose2d(self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
+                        nn.BatchNorm2d(self.ngf),
+                        nn.ReLU(True),
+                        nn.ConvTranspose2d(self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
+                        nn.BatchNorm2d(self.ngf),
+                        nn.ReLU(True)]
+
         self.txt_encoder = nn.Sequential(*text_encoder)
 
     def forward(self, labels, img):
@@ -129,13 +146,13 @@ class ACM(nn.Module):
         # idx = torch.randperm(labels.nelement())
         # labels = labels.view(-1)[idx].view(tlabels.size())
 
-        if len(labels.size()) > 2:
-            labels = labels.view(-1, 1, 1, labels.size(2))
+        #if len(labels.size()) > 2:
+        #    labels = labels.view(-1, 1, 1, labels.size(2))
 
         # print(f"labels shape: {labels.size()}")
         # print(f"out_code_weight shape: {out_code_weight.size()}")
-        # print(f"out_code shape: {out_code.size()}")
         # print(f"out_code_bias shape: {out_code_bias.size()}")
+        # print(f"out_code shape: {out_code.size()}")
 
         return labels * out_code_weight + out_code_bias
 
