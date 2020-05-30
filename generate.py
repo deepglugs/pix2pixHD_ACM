@@ -170,35 +170,7 @@ def do_template(opt):
 
                     do_generate(opt, model)
 
-                    """
-                    label = torch.Tensor([0]).cuda()
-
-                    if opt.cond:
-                        label = get_txt_from_img_fn(img_in, label_files)
-                        if label is not None:
-                            label = encode_txt(label)
-                        else:
-                            print(f"could not find label for {img_in}")
-
-                    fn = os.path.join(template_dirname, img_in)
-                    try:
-                        img = load_image(fn, shape)
-                    except FileNotFoundError:
-                        print(f"Error: could not find {fn}")
-                        continue
-
-                    generated = model.forward(img.view(1, 3, *shape), label)
-
-                    img_out = Image.fromarray(
-                        util.tensor2im(generated.data[0]))
-
-                    img_out_fn = os.path.join(template_dirname,
-                                              img_out_fn)
-
-                    print(f"creating output for {img_out_fn}")
-                    img_out.save(img_out_fn)
-                    """
-            opt = original_opt
+            opt = copy.deepcopy(original_opt)
 
 
 def generate():

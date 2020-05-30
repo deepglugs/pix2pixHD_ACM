@@ -42,8 +42,7 @@ model = create_model(opt)
 visualizer = Visualizer(opt)
 if opt.fp16:
     from apex import amp
-    model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1',
-                                                       keep_batchnorm_fp32=False)
+    model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1')
     model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
 else:
     optimizer_G, optimizer_D = model.module.optimizer_G, model.module.optimizer_D
