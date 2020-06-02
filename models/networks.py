@@ -101,7 +101,7 @@ class Reshape(nn.Module):
 
 # The implementation of ACM (affine combination module)
 class ACM(nn.Module):
-    def __init__(self, channel_num, gf_dim=3):
+    def __init__(self, channel_num, gf_dim=3, img_size=256):
         super(ACM, self).__init__()
         self.ngf = channel_num
         self.conv = conv3x3(gf_dim, 128)
@@ -109,17 +109,21 @@ class ACM(nn.Module):
         self.conv_bias = conv3x3(128, channel_num)      # bias
 
         # todo: use actual img width/height:
-        init_w = 512 // 4
-        init_h = 512 // 4
+        init_w = img_size // 4
+        init_h = img_size // 4
         dl = self.ngf * init_w * init_h
-        text_encoder = [nn.Linear(512, dl),
+        text_encoder = [nn.Linear(img_size, dl),
                         Reshape(self.ngf, init_w, init_h),
-                        nn.ConvTranspose2d(self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
-                        nn.BatchNorm2d(self.ngf),
+                        nn.ConvTranspose2d(self.ngf, self.ngf , kernel_size=3, stride=2, padding=1, output_padding=1),
+                        nn.InstanceNorm2d(self.ngf),
                         nn.ReLU(True),
+                        ResnetBlock(self.ngf,
+                                    padding_type="reflect", norm_layer=nn.InstanceNorm2d),
                         nn.ConvTranspose2d(self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
-                        nn.BatchNorm2d(self.ngf),
-                        nn.ReLU(True)]
+                        nn.InstanceNorm2d(self.ngf),
+                        nn.ReLU(True),
+                        ResnetBlock(self.ngf,
+                                    padding_type="reflect", norm_layer=nn.InstanceNorm2d)]
 
         self.txt_encoder = nn.Sequential(*text_encoder)
 
