@@ -158,9 +158,9 @@ class ACM(nn.Module):
         # print(f"out_code_bias shape: {out_code_bias.size()}")
         # print(f"out_code shape: {out_code.size()}")
 
-        return labels
+        # return labels
 
-        # return labels * out_code_weight + out_code_bias
+        return labels * out_code_weight + out_code_bias
 
 ##############################################################################
 # Losses
