@@ -37,7 +37,7 @@ def is_image(fn):
 def do_generate(opt, model=None):
     img_file = opt.image
     out_dir = opt.output
-    shape = (512, 512)
+    shape = (opt.loadSize, opt.loadSize)
 
     opt.nThreads = 1   # test code only supports nThreads = 1
     opt.batchSize = 1  # test code only supports batchSize = 1
@@ -67,6 +67,8 @@ def do_generate(opt, model=None):
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
+    print(f"Generating {len(img_files)} images...")
+
     for img_file in img_files:
 
         img_out_fn = out_dir
@@ -92,7 +94,7 @@ def do_generate(opt, model=None):
             if label is None:
                 print(f"could not find label for {img_out}")
 
-            label = encode_txt(label, model=opt.tokenizer)
+            label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
         generated = model.inference(img.view(1, 3, *shape), label)
 
