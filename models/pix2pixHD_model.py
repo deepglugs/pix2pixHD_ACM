@@ -157,7 +157,7 @@ class Pix2PixHDModel(BaseModel):
         """
 
         if self.use_features or self.opt.cond:
-            inst_map = inst_map.cuda()
+            inst_map = inst_map.float().cuda()
 
         return input_label, inst_map, real_image, feat_map
 

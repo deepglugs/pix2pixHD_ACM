@@ -55,12 +55,15 @@ def get_vocab(txt_dir_path, filter_tags=None, top=None):
     return np.sort(np.array(vocab))
 
 
-def txt_to_onehot(vocab, txt, split=", ", trim=[" ", '\n']):
+def txt_to_onehot(vocab, txt, split=", ", trim=[" ", '\n'], size=None):
+
+    if size is None or len(vocab) > size:
+        size = len(vocab)
 
     if not isinstance(txt, str):
         raise ValueError("txt_to_onehot() expects a string blob as text input")
 
-    onehot = np.zeros((len(vocab),), dtype=np.float)
+    onehot = np.zeros((size,), dtype=np.float)
 
     for t in txt.split(split):
         for tr in trim:

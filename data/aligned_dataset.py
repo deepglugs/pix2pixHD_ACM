@@ -2,7 +2,7 @@ import os.path
 from data.base_dataset import BaseDataset, get_params, get_transform, normalize
 from data.image_folder import make_dataset
 from PIL import Image
-from data.gan_utils import get_txt_from_img_fn, encode_txt
+from data.gan_utils import get_txt_from_img_fn, encode_txt, get_vocab, txt_to_onehot
 
 
 class AlignedDataset(BaseDataset):
@@ -24,10 +24,17 @@ class AlignedDataset(BaseDataset):
         self.label_files = []
 
         if opt.cond or opt.label_feat:
-            from transformers import GPT2TokenizerFast
+
             self.dir_tags = os.path.join(opt.dataroot, "tags")
             self.label_files = sorted(make_dataset(self.dir_tags,
                                                    exts=['.txt']))
+
+            tags = self.dir_tags
+
+            if os.path.isfile(self.opt.tokenizer):
+                tags = self.opt.tokenizer
+
+            self.vocab = get_vocab(tags, top=opt.loadSize)
 
             assert len(self.label_files), f"Could not find any label files in {opt.dataroot}"
 
@@ -91,8 +98,11 @@ class AlignedDataset(BaseDataset):
                                          self.label_files)
 
         if label_file is not None:
-            inst_tensor = encode_txt(label_file, A_tensor.size(2),
-                                     model=self.opt.tokenizer)
+            # inst_tensor = encode_txt(label_file, A_tensor.size(2),
+            #                         model=self.opt.tokenizer)
+            with open(label_file, 'r') as f:
+                inst_tensor = txt_to_onehot(self.vocab, f.read(),
+                                            size=A_tensor.size(2))
 
         input_dict = {'label': A_tensor, 'inst': inst_tensor, 'image': B_tensor,
                       'feat': feat_tensor, 'path': A_path}
