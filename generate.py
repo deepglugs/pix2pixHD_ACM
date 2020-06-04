@@ -67,6 +67,8 @@ def do_generate(opt, model=None):
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
+    vocab = get_vocab(opt.tokenizer, size=opt.loadSize)
+
     print(f"Generating {len(img_files)} images...")
 
     for img_file in img_files:
@@ -90,11 +92,15 @@ def do_generate(opt, model=None):
         label = torch.Tensor([0]).cuda()
 
         if opt.cond:
-            label = get_txt_from_img_fn(img_out, label_files)
-            if label is None:
+            label_file = get_txt_from_img_fn(img_out, label_files)
+            if label_file is None:
                 print(f"could not find label for {img_out}")
 
-            label = encode_txt(label, img.size(2), model=opt.tokenizer)
+            with open(label_file, 'r') as f:
+                label = txt_to_onehot(vocab, f.read(),
+                                      size=opt.loadSize)
+
+            # label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
         generated = model.inference(img.view(1, 3, *shape), label)
 
