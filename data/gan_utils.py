@@ -6,11 +6,12 @@ import torch
 from PIL import Image
 
 
-def get_vocab(txt_dir_path, filter_tags=None, top=None):
+def get_vocab(txt_dir_path, filter_tags=None, top=None, splitter=", "):
     # Also supports .vocab file:
     if os.path.isfile(txt_dir_path):
         with open(txt_dir_path, 'r') as f:
-            return np.sort(np.array(f.read().split(' ')))
+            data = f.read()
+            return np.sort(np.array(data.split(splitter)))
 
     vocab = []
     occ = {}

@@ -10,7 +10,8 @@ import util.util as util
 from PIL import Image
 from torchvision import transforms
 
-from data.gan_utils import get_txt_from_img_fn, encode_txt, get_images
+from data.gan_utils import get_txt_from_img_fn, encode_txt, get_images, get_vocab, \
+                           txt_to_onehot, txt_from_onehot
 
 
 def load_image(img_file, shape):
@@ -67,7 +68,7 @@ def do_generate(opt, model=None):
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
-    vocab = get_vocab(opt.tokenizer, size=opt.loadSize)
+    vocab = get_vocab(opt.tokenizer, top=opt.loadSize)
 
     print(f"Generating {len(img_files)} images...")
 
@@ -97,8 +98,14 @@ def do_generate(opt, model=None):
                 print(f"could not find label for {img_out}")
 
             with open(label_file, 'r') as f:
-                label = txt_to_onehot(vocab, f.read(),
+                data = f.read()
+                label = txt_to_onehot(vocab, data,
                                       size=opt.loadSize)
+                label = torch.from_numpy(label)
+
+                # label = torch.rand(opt.loadSize)
+                print(label)
+                print(txt_from_onehot(vocab, label))
 
             # label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
