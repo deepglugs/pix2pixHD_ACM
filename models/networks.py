@@ -35,7 +35,7 @@ def get_norm_layer(norm_type='instance'):
 
 
 def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_global=9, n_local_enhancers=1,
-             n_blocks_local=3, norm='instance', cond=False, n_self_attention=1, gpu_ids=[]):
+             n_blocks_local=3, norm='instance', cond=False, n_self_attention=1, img_size=512, gpu_ids=[]):
     norm_layer = get_norm_layer(norm_type=norm)
     if netG == 'global':
         netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer, cond=cond,
@@ -43,10 +43,10 @@ def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_glo
     elif netG == 'local':
         netG = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global,
                              n_local_enhancers, n_blocks_local, norm_layer, cond=cond,
-                             n_self_attention=n_self_attention)
+                             n_self_attention=n_self_attention, img_size=img_size)
     elif netG == 'encoder':
         netG = Encoder(input_nc, output_nc, ngf,
-                       n_downsample_global, norm_layer)
+                       n_downsample_global, norm_layer, img_size=img_size)
     else:
         raise('generator not implemented!')
     print(netG)
@@ -108,7 +108,8 @@ class ACM(nn.Module):
         self.conv_weight = conv3x3(128, channel_num)    # weight
         self.conv_bias = conv3x3(128, channel_num)      # bias
 
-        # todo: use actual img width/height:
+        self.img_size = img_size
+
         init_w = img_size // 4
         init_h = img_size // 4
         dl = self.ngf * init_w * init_h
@@ -237,7 +238,7 @@ class VGGLoss(nn.Module):
 class LocalEnhancer(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsample_global=3, n_blocks_global=9,
                  n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False,
-                 n_self_attention=0):
+                 n_self_attention=0, img_size=512):
         super(LocalEnhancer, self).__init__()
         self.n_local_enhancers = n_local_enhancers
         self.cond = cond
@@ -253,7 +254,7 @@ class LocalEnhancer(nn.Module):
         self.model = nn.Sequential(*model_global)
 
         if self.cond:
-            self.acm = ACM(ngf)
+            self.acm = ACM(ngf, img_size=img_size)
 
         ###### local enhancer layers #####
         for n in range(1, n_local_enhancers+1):
@@ -419,11 +420,11 @@ class ResnetBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=32, n_downsampling=4, norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, output_nc, ngf=32, n_downsampling=4, norm_layer=nn.BatchNorm2d, img_size=512):
         super(Encoder, self).__init__()
         self.output_nc = output_nc
 
-        model = [ACM(ngf)]
+        model = [ACM(ngf, img_size=img_size)]
 
         model += [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0),
                   norm_layer(ngf), nn.ReLU(True)]

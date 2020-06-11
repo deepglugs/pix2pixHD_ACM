@@ -26,7 +26,7 @@ def get_params(opt, size):
 
     x = random.randint(0, np.maximum(0, new_w - opt.fineSize))
     y = random.randint(0, np.maximum(0, new_h - opt.fineSize))
-    
+
     flip = random.random() > 0.5
     return {'crop_pos': (x, y), 'flip': flip}
 

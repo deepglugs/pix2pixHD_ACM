@@ -104,8 +104,8 @@ def do_generate(opt, model=None):
                 label = torch.from_numpy(label)
 
                 # label = torch.rand(opt.loadSize)
-                print(label)
-                print(txt_from_onehot(vocab, label))
+                # print(label)
+                # print(txt_from_onehot(vocab, label))
 
             # label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
@@ -116,6 +116,8 @@ def do_generate(opt, model=None):
 
         print(f"creating output for {img_out_fn}")
         img_out.save(img_out_fn)
+
+    del model
 
 
 def do_template(opt):
@@ -132,7 +134,6 @@ def do_template(opt):
         template = yaml.load(f, Loader=yaml.FullLoader)
 
     template_dirname = os.path.dirname(opt.template)
-    shape = (512, 512)
 
     label_files = []
 
