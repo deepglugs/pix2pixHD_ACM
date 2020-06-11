@@ -510,8 +510,8 @@ class NLayerDiscriminator(nn.Module):
         self.n_self_attention = n_self_attention
 
         kw = 4
-        padw = int(np.ceil((kw-1.0)/2))
-        sequence = [[nn.Conv2d(input_nc, ndf, kernel_size=kw,
+        padw = int(np.floor((kw-1.0)/2))
+        sequence = [[nn.SNConv2d(input_nc, ndf, kernel_size=kw,
                                stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
 
         nf = ndf
@@ -519,7 +519,7 @@ class NLayerDiscriminator(nn.Module):
             nf_prev = nf
             nf = min(nf * 2, 512)
             sequence += [[
-                nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
+                nn.SNConv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True)
             ]]
 
@@ -530,12 +530,12 @@ class NLayerDiscriminator(nn.Module):
 
         sequence += [[
             # SelfAttention2d(nf_prev),
-            nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
+            nn.SNConv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
             norm_layer(nf),
             nn.LeakyReLU(0.2, True)
         ]]
 
-        sequence += [[nn.Conv2d(nf, 1, kernel_size=kw,
+        sequence += [[nn.SNConv2d(nf, 1, kernel_size=kw,
                                 stride=1, padding=padw)]]
 
         if use_sigmoid:
