@@ -23,7 +23,7 @@ class AlignedDataset(BaseDataset):
 
         self.label_files = []
 
-        if opt.cond or opt.label_feat:
+        if opt.cond or opt.instance_feat:
 
             self.dir_tags = os.path.join(opt.dataroot, "tags")
             self.label_files = sorted(make_dataset(self.dir_tags,

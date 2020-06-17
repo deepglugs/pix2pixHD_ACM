@@ -113,7 +113,7 @@ def txt_from_onehot(vocab, onehot, thresh=0.2, return_confidence=False):
     return txt
 
 
-def onehot_to_image(onehot, img_shape):
+def onehot_to_image(onehot, img_shape, rgb=True):
     sqrt = round(math.pow(len(onehot), 0.5))
 
     sqr_y = sqrt * sqrt
@@ -123,7 +123,11 @@ def onehot_to_image(onehot, img_shape):
     y = np.reshape(y, (-1, sqrt))
 
     img = Image.fromarray(y * 127.5 + 1)
-    img = img.convert("L").convert("RGB")
+    img = img.convert("L")
+
+    if rgb:
+        img = img.convert("RGB")
+
     img = img.resize(img_shape, Image.BICUBIC)
 
     return np.asarray(img)

@@ -2,6 +2,8 @@ import argparse
 import os
 from util import util
 import torch
+import yaml
+
 
 class BaseOptions():
     def __init__(self):
@@ -10,7 +12,8 @@ class BaseOptions():
 
     def initialize(self):    
         # experiment specifics
-        self.parser.add_argument('--name', type=str, default='label2city', help='name of the experiment. It decides where to store samples and models')        
+        self.parser.add_argument('--name', type=str, default='label2city', help='name of the experiment. It decides where to store samples and models')
+        self.parser.add_argument('--load_config', action='store_true', help='load default options from the opt.yaml')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--model', type=str, default='pix2pixHD', help='which model to use')
@@ -65,6 +68,16 @@ class BaseOptions():
 
         self.initialized = True
 
+    def load(self):
+        expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
+
+        file_name = os.path.join(expr_dir, 'opt.yaml')
+        if os.path.isfile(file_name):
+            with open(file_name, 'r') as f:
+                opt_yaml = yaml.load(f, Loader=yaml.FullLoader)
+
+            return opt_yaml
+
     def parse(self, save=True):
         if not self.initialized:
             self.initialize()
@@ -77,7 +90,7 @@ class BaseOptions():
             id = int(str_id)
             if id >= 0:
                 self.opt.gpu_ids.append(id)
-        
+
         # set gpu ids
         if len(self.opt.gpu_ids) > 0:
             torch.cuda.set_device(self.opt.gpu_ids[0])
@@ -89,9 +102,10 @@ class BaseOptions():
             print('%s: %s' % (str(k), str(v)))
         print('-------------- End ----------------')
 
-        # save to the disk        
+        # save to the disk
         expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
         util.mkdirs(expr_dir)
+
         if save and not self.opt.continue_train:
             file_name = os.path.join(expr_dir, 'opt.txt')
             with open(file_name, 'wt') as opt_file:
@@ -99,4 +113,9 @@ class BaseOptions():
                 for k, v in sorted(args.items()):
                     opt_file.write('%s: %s\n' % (str(k), str(v)))
                 opt_file.write('-------------- End ----------------\n')
+
+            file_name = os.path.join(expr_dir, 'opt.yaml')
+            with open(file_name, 'wt') as opt_file:
+                opt_file.write(yaml.dump(args))
+
         return self.opt

@@ -35,6 +35,62 @@ def is_image(fn):
             fn.endswith(".jpeg"))
 
 
+def live_generate(opt, model=None):
+    import signal
+    from PyQt5.QtCore import QFileSystemWatcher
+    from PyQt5.QtCore import QCoreApplication, QTimer
+
+    app = QCoreApplication([])
+
+    out_dir = opt.output
+    shape = (opt.loadSize, opt.loadSize)
+
+    opt.nThreads = 1   # test code only supports nThreads = 1
+    opt.batchSize = 1  # test code only supports batchSize = 1
+    opt.serial_batches = True  # no shuffle
+    opt.no_flip = True  # no flip
+    opt.label_nc = 0
+    opt.no_instance = True
+    opt.replace = True
+
+    model = create_model(opt)
+
+    def on_file_changed(path):
+        print(f"file {path} changed")
+
+        if path not in watcher.files():
+            if os.path.exists(path):
+                print("new file(s). adding to watch")
+                if os.path.isdir(path):
+                    paths = get_images(path)
+                else:
+                    paths = [path]
+                watcher.addPaths(paths)
+
+        opt.image = path
+        do_generate(opt, model)
+
+    imgs = []
+
+    if os.path.isdir(opt.image):
+        imgs = get_images(opt.image)
+
+    watcher = QFileSystemWatcher([opt.image, *imgs])
+    watcher.directoryChanged.connect(on_file_changed)
+    watcher.fileChanged.connect(on_file_changed)
+
+    timer = QTimer()
+    timer.start(500)  # You may change this if you wish.
+    timer.timeout.connect(lambda: None)  # Let the interpreter run each 500 ms.
+
+    def sigint_handler(*args):
+        QCoreApplication.quit()
+
+    signal.signal(signal.SIGTERM, sigint_handler)
+
+    app.exec_()
+
+
 def do_generate(opt, model=None):
     img_file = opt.image
     out_dir = opt.output
@@ -46,9 +102,17 @@ def do_generate(opt, model=None):
     opt.no_flip = True  # no flip
     opt.label_nc = 0
     opt.no_instance = True
+    opt.gpu_ids = []
+    opt.isTrain = False
+
+    feature_image = None
+    if opt.feature_image is not None:
+        feature_image = load_image(opt.feature_image, shape).view(1, 3, *shape)
+        opt.use_encoded_image = True
+        opt.instance_feat = True
 
     if model is None:
-        model = create_model(opt)
+        model = create_model(opt).cuda()
 
     if os.path.isfile(img_file):
         img_files = [img_file]
@@ -58,10 +122,10 @@ def do_generate(opt, model=None):
     label_files = []
 
     if opt.label is not None:
-        if os.path.isfile(opt.label):
-            label_files = [opt.label]
-        else:
+        if os.path.isdir(opt.label):
             label_files = get_images(opt.label, exts=['.txt'])
+        else:
+            label_files = get_images(os.path.dirname(opt.image), exts=['.txt'])
 
     if not is_image(out_dir):
         os.makedirs(out_dir, exist_ok=True)
@@ -71,6 +135,7 @@ def do_generate(opt, model=None):
     vocab = get_vocab(opt.tokenizer, top=opt.loadSize)
 
     print(f"Generating {len(img_files)} images...")
+
 
     for img_file in img_files:
 
@@ -87,21 +152,31 @@ def do_generate(opt, model=None):
         if not opt.replace and os.path.isfile(img_out_fn):
             print(f"skipping {img_out_fn}")
             continue
-
-        img = load_image(img_file, shape)
+        try:
+            img = load_image(img_file, shape)
+        except Exception as ex:
+            print(f"could not load img: {img_file}")
+            print(ex)
+            continue
 
         label = torch.Tensor([0]).cuda()
 
-        if opt.cond:
-            label_file = get_txt_from_img_fn(img_out, label_files)
-            if label_file is None:
-                print(f"could not find label for {img_out}")
+        if opt.cond or opt.feature_image:
+            # print("using label!!!")
+            if not os.path.isfile(opt.label):
+                label_file = get_txt_from_img_fn(img_out, label_files)
+
+                if label_file is None:
+                    print(f"could not find label for {img_out}")
+                    continue
+            else:
+                label_file = opt.label
 
             with open(label_file, 'r') as f:
                 data = f.read()
                 label = txt_to_onehot(vocab, data,
                                       size=opt.loadSize)
-                label = torch.from_numpy(label)
+                label = torch.from_numpy(label).float()
 
                 # label = torch.rand(opt.loadSize)
                 # print(label)
@@ -109,7 +184,12 @@ def do_generate(opt, model=None):
 
             # label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
-        generated = model.inference(img.view(1, 3, *shape), label)
+        if feature_image is not None:
+            feature_image = feature_image.cuda()
+
+        generated = model.inference(img.view(1, 3, *shape).cuda(),
+                                    label.cuda(),
+                                    feature_image)
 
         img_out = Image.fromarray(
             util.tensor2im(generated.data[0]))
@@ -194,7 +274,8 @@ def generate():
 
     if opt.template is not None:
         do_template(opt)
-
+    elif opt.live:
+        live_generate(opt)
     else:
         do_generate(opt)
 

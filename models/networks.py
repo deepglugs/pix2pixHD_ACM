@@ -133,6 +133,10 @@ class ACM(nn.Module):
         # print(labels.size())
         # print(img.size())
 
+        # print("ACM types...")
+        # print(labels.type())
+        # print(img.type())
+
         out_code = self.conv(img)
         out_code_weight = self.conv_weight(out_code)
         out_code_bias = self.conv_bias(out_code)
@@ -511,7 +515,7 @@ class NLayerDiscriminator(nn.Module):
 
         kw = 4
         padw = int(np.floor((kw-1.0)/2))
-        sequence = [[nn.SNConv2d(input_nc, ndf, kernel_size=kw,
+        sequence = [[SNConv2d(input_nc, ndf, kernel_size=kw,
                                stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
 
         nf = ndf
@@ -519,7 +523,7 @@ class NLayerDiscriminator(nn.Module):
             nf_prev = nf
             nf = min(nf * 2, 512)
             sequence += [[
-                nn.SNConv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
+                SNConv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True)
             ]]
 
@@ -530,12 +534,12 @@ class NLayerDiscriminator(nn.Module):
 
         sequence += [[
             # SelfAttention2d(nf_prev),
-            nn.SNConv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
+            SNConv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
             norm_layer(nf),
             nn.LeakyReLU(0.2, True)
         ]]
 
-        sequence += [[nn.SNConv2d(nf, 1, kernel_size=kw,
+        sequence += [[SNConv2d(nf, 1, kernel_size=kw,
                                 stride=1, padding=padw)]]
 
         if use_sigmoid:

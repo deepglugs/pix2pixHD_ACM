@@ -6,6 +6,7 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 
+from data.gan_utils import onehot_to_image
 
 class Pix2PixHDModel(BaseModel):
     def name(self):
@@ -158,7 +159,7 @@ class Pix2PixHDModel(BaseModel):
                 inst_map = label_map.cuda()
         """
 
-        if self.use_features or self.opt.cond:
+        if not infer and (self.use_features or self.opt.cond):
             inst_map = inst_map.float().cuda()
 
         return input_label, inst_map, real_image, feat_map
@@ -195,6 +196,10 @@ class Pix2PixHDModel(BaseModel):
         pred_fake_pool = self.discriminate(
             input_label, fake_image, use_pool=True)
         loss_D_fake = self.criterionGAN(pred_fake_pool, False)
+
+        # TODO: send labels to discriminator as well
+        # if self.opt.cond:
+        #    input_label = torch.cat((input_label, input_concat), dim=1)
 
         # Real Detection and Loss
         pred_real = self.discriminate(input_label, real_image)
@@ -235,10 +240,11 @@ class Pix2PixHDModel(BaseModel):
         if self.use_features:
             if self.opt.use_encoded_image:
                 # encode the real image to get feature map
-                feat_map = self.netE.forward(inst_map, real_image)
+                feat_map = self.netE.forward(inst_map, image)
             else:
                 # sample clusters from precomputed features
                 feat_map = self.sample_features(inst_map)
+
             input_concat = torch.cat((input_label, feat_map), dim=1)
         else:
             input_concat = input_label
