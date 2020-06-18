@@ -8,6 +8,7 @@ from . import networks
 
 from data.gan_utils import onehot_to_image
 
+
 class Pix2PixHDModel(BaseModel):
     def name(self):
         return 'Pix2PixHDModel'
@@ -46,8 +47,9 @@ class Pix2PixHDModel(BaseModel):
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             netD_input_nc = input_nc + opt.output_nc
-            if not opt.no_instance:
+            if not opt.no_instance or opt.cond:
                 netD_input_nc += 1
+
             self.netD = networks.define_D(netD_input_nc, opt.ndf, opt.n_layers_D, opt.norm, use_sigmoid,
                                           opt.num_D, not opt.no_ganFeat_loss, gpu_ids=self.gpu_ids)
 
@@ -192,14 +194,17 @@ class Pix2PixHDModel(BaseModel):
         else:
             fake_image = self.netG.forward(input_concat)
 
+        # TODO: send labels to discriminator as well
+        if self.opt.cond:
+            dim = inst_map.size(1)
+            v = inst_map.unsqueeze(2).repeat(1, 1, dim).view(-1, 1, dim, dim)
+            input_label = torch.cat(
+                (v, input_concat), dim=1)
+
         # Fake Detection and Loss
         pred_fake_pool = self.discriminate(
             input_label, fake_image, use_pool=True)
         loss_D_fake = self.criterionGAN(pred_fake_pool, False)
-
-        # TODO: send labels to discriminator as well
-        # if self.opt.cond:
-        #    input_label = torch.cat((input_label, input_concat), dim=1)
 
         # Real Detection and Loss
         pred_real = self.discriminate(input_label, real_image)
