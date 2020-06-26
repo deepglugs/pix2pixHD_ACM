@@ -105,28 +105,32 @@ class ACM(nn.Module):
         super(ACM, self).__init__()
         self.ngf = channel_num
         self.conv = conv3x3(gf_dim, 128)
-        self.conv_weight = conv3x3(128, channel_num)    # weight
-        self.conv_bias = conv3x3(128, channel_num)      # bias
+        self.conv_weight = conv3x3(128, self.ngf)    # weight
+        self.conv_bias = conv3x3(128, self.ngf)      # bias
 
         self.img_size = img_size
 
+        """
         init_w = img_size // 4
         init_h = img_size // 4
         dl = self.ngf * init_w * init_h
         text_encoder = [nn.Linear(img_size, dl),
                         Reshape(self.ngf, init_w, init_h),
-                        nn.ConvTranspose2d(self.ngf, self.ngf , kernel_size=3, stride=2, padding=1, output_padding=1),
+                        nn.ConvTranspose2d(
+                            self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
                         nn.InstanceNorm2d(self.ngf),
                         nn.ReLU(True),
                         ResnetBlock(self.ngf,
                                     padding_type="reflect", norm_layer=nn.InstanceNorm2d),
-                        nn.ConvTranspose2d(self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
+                        nn.ConvTranspose2d(
+                            self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
                         nn.InstanceNorm2d(self.ngf),
                         nn.ReLU(True),
                         ResnetBlock(self.ngf,
                                     padding_type="reflect", norm_layer=nn.InstanceNorm2d)]
 
         self.txt_encoder = nn.Sequential(*text_encoder)
+        """
 
     def forward(self, labels, img):
         # print("ACM forward...")
@@ -149,14 +153,10 @@ class ACM(nn.Module):
         # print(f"padding shape: {padding.size()}")
         # labels = torch.cat((labels.float(), padding), dim=2)
 
-        labels = self.txt_encoder(labels)
+        # labels = self.txt_encoder(labels)
 
-        # Maybe randomize the labels?
-        # idx = torch.randperm(labels.nelement())
-        # labels = labels.view(-1)[idx].view(tlabels.size())
-
-        #if len(labels.size()) > 2:
-        #    labels = labels.view(-1, 1, 1, labels.size(2))
+        # if len(labels.size()) > 2:
+        labels = labels.view(-1, 1, 1, labels.size(1))
 
         # print(f"labels shape: {labels.size()}")
         # print(f"out_code_weight shape: {out_code_weight.size()}")
@@ -516,7 +516,7 @@ class NLayerDiscriminator(nn.Module):
         kw = 4
         padw = int(np.floor((kw-1.0)/2))
         sequence = [[SNConv2d(input_nc, ndf, kernel_size=kw,
-                               stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
+                              stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
 
         nf = ndf
         for n in range(1, n_layers):
@@ -540,7 +540,7 @@ class NLayerDiscriminator(nn.Module):
         ]]
 
         sequence += [[SNConv2d(nf, 1, kernel_size=kw,
-                                stride=1, padding=padw)]]
+                               stride=1, padding=padw)]]
 
         if use_sigmoid:
             sequence += [[nn.Sigmoid()]]
