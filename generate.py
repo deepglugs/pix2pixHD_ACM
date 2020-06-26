@@ -163,20 +163,23 @@ def do_generate(opt, model=None):
 
         if opt.cond or opt.feature_image:
             # print("using label!!!")
-            if not os.path.isfile(opt.label):
+            label_file = opt.label
+            if not os.path.isfile(label_file):
                 label_file = get_txt_from_img_fn(img_out, label_files)
 
                 if label_file is None:
                     print(f"could not find label for {img_out}")
-                    continue
-            else:
-                label_file = opt.label
 
-            with open(label_file, 'r') as f:
-                data = f.read()
-                label = txt_to_onehot(vocab, data,
+            if "," in opt.label:
+                label = txt_to_onehot(vocab, opt.label,
                                       size=opt.loadSize)
                 label = torch.from_numpy(label).float()
+            else:
+                with open(label_file, 'r') as f:
+                    data = f.read()
+                    label = txt_to_onehot(vocab, data,
+                                          size=opt.loadSize)
+                    label = torch.from_numpy(label).float()
 
                 # label = torch.rand(opt.loadSize)
                 # print(label)

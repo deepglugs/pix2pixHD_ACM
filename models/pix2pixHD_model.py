@@ -6,7 +6,7 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 
-from data.gan_utils import onehot_to_image
+# from data.gan_utils import onehot_to_image
 
 
 class Pix2PixHDModel(BaseModel):
