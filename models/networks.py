@@ -156,7 +156,11 @@ class ACM(nn.Module):
         # labels = self.txt_encoder(labels)
 
         # if len(labels.size()) > 2:
-        labels = labels.view(-1, 1, 1, labels.size(1))
+        di = 1
+        if len(labels.size()) == 1:
+            di = 0
+
+        labels = labels.view(-1, 1, 1, labels.size(di))
 
         # print(f"labels shape: {labels.size()}")
         # print(f"out_code_weight shape: {out_code_weight.size()}")
