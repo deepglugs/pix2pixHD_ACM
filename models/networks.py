@@ -395,7 +395,9 @@ class GlobalGenerator(nn.Module):
 
         # self attention
         for i in range(n_self_attention):
-            model += [SelfAttention2d(ngf * 2 ** (n_downsampling-1) * 2)]
+            filt = ngf * 2 ** (n_downsampling-1) * 2
+            model += [SelfAttention2d(filt),
+                      norm_layer(int(filt)), activation]
 
         # resnet blocks
         mult = 2**n_downsampling
