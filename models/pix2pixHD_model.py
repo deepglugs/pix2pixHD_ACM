@@ -62,7 +62,19 @@ class Pix2PixHDModel(BaseModel):
             print('---------- Networks initialized -------------')
 
         # load networks
-        if not self.isTrain or opt.continue_train or opt.load_pretrain:
+        if not self.isTrain or opt.continue_train:
+            pretrained_path = ''
+            self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)
+            if self.isTrain:
+                self.load_network(
+                    self.netD, 'D', opt.which_epoch, pretrained_path)
+            if self.gen_features:
+                self.load_network(
+                    self.netE, 'E', opt.which_epoch, pretrained_path)
+
+        # load any pretrained networks on top if possible...
+        # This might help in continue train of local networks without having to start over...
+        if not self.isTrain or opt.load_pretrain:
             pretrained_path = '' if not self.isTrain else opt.load_pretrain
             self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)
             if self.isTrain:
