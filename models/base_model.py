@@ -88,9 +88,14 @@ class BaseModel(torch.nn.Module):
                         print('Pretrained network %s has excessive layers; Only loading layers that are used' % network_label)
                 except:
                     print('Pretrained network %s has fewer layers; The following are not initialized:' % network_label)
-                    for k, v in pretrained_dict.items():                      
+                    print('Trying to set individual layers where possible:')
+                    for k, v in pretrained_dict.items():
+                        k_name = k.split('.')[0]
                         if v.size() == model_dict[k].size():
+                            print(f"preserving {k}")
                             model_dict[k] = v
+                        else:
+                            print(f"layer {k} sizes to not match: {v.size()} vs {model_dict[k].size()}")
 
                     if sys.version_info >= (3,0):
                         not_initialized = set()

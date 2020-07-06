@@ -290,7 +290,13 @@ class LocalEnhancer(nn.Module):
         self.cond = cond
 
         ###### global generator model #####
+        # GlobalGenerator must be trained at twice the ngf for load_pretrain to work
         ngf_global = ngf * (2**n_local_enhancers)
+
+        print("***********")
+        print(f"making global ngf: {ngf_global}")
+        print("***********")
+
         model_global = GlobalGenerator(input_nc, output_nc, ngf_global,
                                        n_downsample_global, n_blocks_global,
                                        norm_layer,
@@ -342,6 +348,7 @@ class LocalEnhancer(nn.Module):
             input = input_orig
             if isinstance(input, tuple):
                 input = input[0]
+
         # create input pyramid
         input_downsampled = [input]
         for i in range(self.n_local_enhancers):
