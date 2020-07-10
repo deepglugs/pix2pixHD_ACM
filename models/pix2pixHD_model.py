@@ -187,67 +187,68 @@ class Pix2PixHDModel(BaseModel):
         else:
             return self.netD.forward(input_concat)
 
-    @autocast()
     def forward(self, label, inst, image, feat, infer=False):
         # Encode Inputs
         input_label, inst_map, real_image, feat_map = self.encode_input(
             label, inst, image, feat)
 
         # print(f"acm shape: {inst_map.size()}")
+        with autocast(enabled=self.opt.fp16):
+            # Fake Generation
+            if self.use_features:
+                if not self.opt.load_features:
+                    feat_map = self.netE.forward(inst_map, real_image)
+                input_concat = torch.cat((input_label, feat_map), dim=1)
+            else:
+                input_concat = input_label
 
-        # Fake Generation
-        if self.use_features:
-            if not self.opt.load_features:
-                feat_map = self.netE.forward(inst_map, real_image)
-            input_concat = torch.cat((input_label, feat_map), dim=1)
-        else:
-            input_concat = input_label
-
-        if self.opt.cond:
-            fake_image = self.netG.forward(inst_map, input_concat)
-        else:
-            fake_image = self.netG.forward(input_concat)
+            if self.opt.cond:
+                fake_image = self.netG.forward(inst_map, input_concat)
+            else:
+                fake_image = self.netG.forward(input_concat)
 
         # TODO: send labels to discriminator as well
         if self.opt.cond:
             dim = inst_map.size(1)
-            v = inst_map.unsqueeze(2).repeat(1, 1, dim).view(-1, 1, dim, dim)
+            v = inst_map.unsqueeze(2).repeat(
+                1, 1, dim).view(-1, 1, dim, dim)
             input_label = torch.cat(
                 (v, input_concat), dim=1)
 
-        # Fake Detection and Loss
-        pred_fake_pool = self.discriminate(
-            input_label, fake_image, use_pool=True)
-        loss_D_fake = self.criterionGAN(pred_fake_pool, False)
+        with autocast(enabled=self.opt.fp16):
+            # Fake Detection and Loss
+            pred_fake_pool = self.discriminate(
+                input_label, fake_image, use_pool=True)
+            loss_D_fake = self.criterionGAN(pred_fake_pool, False)
 
-        # Real Detection and Loss
-        pred_real = self.discriminate(input_label, real_image)
-        loss_D_real = self.criterionGAN(pred_real, True)
+            # Real Detection and Loss
+            pred_real = self.discriminate(input_label, real_image)
+            loss_D_real = self.criterionGAN(pred_real, True)
 
-        # GAN loss (Fake Passability Loss)
-        pred_fake = self.netD.forward(
-            torch.cat((input_label, fake_image), dim=1))
-        loss_G_GAN = self.criterionGAN(pred_fake, True)
+            # GAN loss (Fake Passability Loss)
+            pred_fake = self.netD.forward(
+                torch.cat((input_label, fake_image), dim=1))
+            loss_G_GAN = self.criterionGAN(pred_fake, True)
 
-        # GAN feature matching loss
-        loss_G_GAN_Feat = 0
-        if not self.opt.no_ganFeat_loss:
-            feat_weights = 4.0 / (self.opt.n_layers_D + 1)
-            D_weights = 1.0 / self.opt.num_D
-            for i in range(self.opt.num_D):
-                for j in range(len(pred_fake[i])-1):
-                    loss_G_GAN_Feat += D_weights * feat_weights * \
-                        self.criterionFeat(
-                            pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
+            # GAN feature matching loss
+            loss_G_GAN_Feat = 0
+            if not self.opt.no_ganFeat_loss:
+                feat_weights = 4.0 / (self.opt.n_layers_D + 1)
+                D_weights = 1.0 / self.opt.num_D
+                for i in range(self.opt.num_D):
+                    for j in range(len(pred_fake[i])-1):
+                        loss_G_GAN_Feat += D_weights * feat_weights * \
+                            self.criterionFeat(
+                                pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
 
-        # VGG feature matching loss
-        loss_G_VGG = 0
-        if not self.opt.no_vgg_loss:
-            loss_G_VGG = self.criterionVGG(
-                fake_image, real_image) * self.opt.lambda_feat
+            # VGG feature matching loss
+            loss_G_VGG = 0
+            if not self.opt.no_vgg_loss:
+                loss_G_VGG = self.criterionVGG(
+                    fake_image, real_image) * self.opt.lambda_feat
 
-        # Only return the fake_B image if necessary to save BW
-        return [self.loss_filter(loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake), None if not infer else fake_image]
+            # Only return the fake_B image if necessary to save BW
+            return [self.loss_filter(loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake), None if not infer else fake_image]
 
     def inference(self, label, inst, image=None):
         # Encode Inputs
