@@ -103,6 +103,8 @@ class AlignedDataset(BaseDataset):
             with open(label_file, 'r') as f:
                 inst_tensor = txt_to_onehot(self.vocab, f.read(),
                                             size=A_tensor.size(2))
+        elif self.opt.cond:
+            raise Exception(f"label file for {self.A_paths[index]} not found")
 
         input_dict = {'label': A_tensor, 'inst': inst_tensor, 'image': B_tensor,
                       'feat': feat_tensor, 'path': A_path}

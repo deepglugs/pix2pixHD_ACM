@@ -171,9 +171,9 @@ class ACM(nn.Module):
         """
 
     def forward(self, labels, img):
-        # print("ACM forward...")
-        # print(labels.size())
-        # print(img.size())
+        print("ACM forward...")
+        print(labels.size())
+        print(img.size())
 
         # print("ACM types...")
         # print(labels.type())
@@ -200,9 +200,9 @@ class ACM(nn.Module):
 
         labels = labels.view(-1, 1, 1, labels.size(di))
 
-        # print(f"labels shape: {labels.size()}")
-        # print(f"out_code_weight shape: {out_code_weight.size()}")
-        # print(f"out_code_bias shape: {out_code_bias.size()}")
+        print(f"labels shape: {labels.size()}")
+        print(f"out_code_weight shape: {out_code_weight.size()}")
+        print(f"out_code_bias shape: {out_code_bias.size()}")
         # print(f"out_code shape: {out_code.size()}")
 
         # return labels
