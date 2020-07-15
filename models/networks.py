@@ -39,6 +39,8 @@ def get_norm_layer(norm_type='instance'):
 ##################################################################################
 # Normalization layers
 ##################################################################################
+
+
 class AdaptiveInstanceNorm2d(nn.Module):
     def __init__(self, num_features, eps=1e-5, momentum=0.1):
         super(AdaptiveInstanceNorm2d, self).__init__()
@@ -69,7 +71,6 @@ class AdaptiveInstanceNorm2d(nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + '(' + str(self.num_features) + ')'
-
 
 
 def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_global=9, n_local_enhancers=1,
@@ -171,9 +172,9 @@ class ACM(nn.Module):
         """
 
     def forward(self, labels, img):
-        print("ACM forward...")
-        print(labels.size())
-        print(img.size())
+        # print("ACM forward...")
+        # print(labels.size())
+        # print(img.size())
 
         # print("ACM types...")
         # print(labels.type())
@@ -200,9 +201,9 @@ class ACM(nn.Module):
 
         labels = labels.view(-1, 1, 1, labels.size(di))
 
-        print(f"labels shape: {labels.size()}")
-        print(f"out_code_weight shape: {out_code_weight.size()}")
-        print(f"out_code_bias shape: {out_code_bias.size()}")
+        # print(f"labels shape: {labels.size()}")
+        # print(f"out_code_weight shape: {out_code_weight.size()}")
+        # print(f"out_code_bias shape: {out_code_bias.size()}")
         # print(f"out_code shape: {out_code.size()}")
 
         # return labels
@@ -646,4 +647,4 @@ class Vgg19(torch.nn.Module):
         h_relu4 = self.slice4(h_relu3)
         h_relu5 = self.slice5(h_relu4)
         out = [h_relu1, h_relu2, h_relu3, h_relu4, h_relu5]
-        return out
+      
