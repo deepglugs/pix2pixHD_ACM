@@ -132,7 +132,7 @@ class Pix2PixHDModel(BaseModel):
             if self.gen_features:
                 params += list(self.netE.parameters())
             self.optimizer_G = torch.optim.Adam(
-                params, lr=opt.lr, betas=(opt.beta1, 0.999))
+                params, lr=opt.lr_G, betas=(opt.beta1, 0.999))
 
             # optimizer D
             params = list(self.netD.parameters())
