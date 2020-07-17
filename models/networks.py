@@ -647,4 +647,4 @@ class Vgg19(torch.nn.Module):
         h_relu4 = self.slice4(h_relu3)
         h_relu5 = self.slice5(h_relu4)
         out = [h_relu1, h_relu2, h_relu3, h_relu4, h_relu5]
-      
+        return out
