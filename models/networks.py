@@ -285,7 +285,7 @@ class VGGLoss(nn.Module):
 class LocalEnhancer(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsample_global=3, n_blocks_global=9,
                  n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False,
-                 n_self_attention=0, img_size=512):
+                 n_self_attention=0, img_size=512, acm_dim=32):
         super(LocalEnhancer, self).__init__()
         self.n_local_enhancers = n_local_enhancers
         self.cond = cond
@@ -307,7 +307,7 @@ class LocalEnhancer(nn.Module):
         self.model = nn.Sequential(*model_global)
 
         if self.cond:
-            self.acm = ACM(ngf, img_size=img_size)
+            self.acm = ACM(acm_dim, img_size=img_size)
 
         ###### local enhancer layers #####
         for n in range(1, n_local_enhancers+1):
@@ -382,7 +382,7 @@ class MultiSequential(nn.Sequential):
 
 class GlobalGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, n_downsampling=3, n_blocks=9, norm_layer=nn.BatchNorm2d,
-                 padding_type='reflect', cond=False, n_self_attention=0):
+                 padding_type='reflect', cond=False, n_self_attention=0, acm_dim=64):
         assert(n_blocks >= 0)
         super(GlobalGenerator, self).__init__()
         activation = nn.ReLU(True)
@@ -391,7 +391,7 @@ class GlobalGenerator(nn.Module):
 
         model = []
         if self.cond:
-            model = [ACM(ngf)]
+            model = [ACM(acm_dim)]
 
         model += [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf,
                                                    kernel_size=7, padding=0), norm_layer(ngf), activation]
