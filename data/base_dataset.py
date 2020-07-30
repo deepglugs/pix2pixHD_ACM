@@ -30,7 +30,7 @@ def get_params(opt, size):
     flip = random.random() > 0.5
     return {'crop_pos': (x, y), 'flip': flip}
 
-def get_transform(opt, params, method=Image.BICUBIC, normalize=True):
+def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False):
     transform_list = []
     if 'resize' in opt.resize_or_crop:
         osize = [opt.loadSize, opt.loadSize]
@@ -40,6 +40,9 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True):
         
     if 'crop' in opt.resize_or_crop:
         transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.fineSize)))
+
+    if "jitter" in opt.resize_or_crop and is_A:
+        transform_list.append(transforms.ColorJitter(0.5, 0.5, 0.5))
 
     if opt.resize_or_crop == 'none':
         base = float(2 ** opt.n_downsample_global)
