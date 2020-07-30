@@ -144,8 +144,8 @@ class ACM(nn.Module):
         super(ACM, self).__init__()
         self.ngf = channel_num
         self.conv = conv3x3(gf_dim, 128)
-        self.conv_weight = conv3x3(128, self.ngf)    # weight
-        self.conv_bias = conv3x3(128, self.ngf)      # bias
+        self.conv_weight = conv3x3(128, gf_dim)    # weight
+        self.conv_bias = conv3x3(128, gf_dim)      # bias
 
         self.img_size = img_size
 
@@ -344,7 +344,8 @@ class LocalEnhancer(nn.Module):
     def forward(self, *input_orig):
 
         if self.cond:
-            input = self.acm(*input_orig)
+            labels, input = input_orig
+            # input = self.acm(*input_orig)
         else:
             input = input_orig
             if isinstance(input, tuple):
@@ -366,7 +367,7 @@ class LocalEnhancer(nn.Module):
             input_i = input_downsampled[self.n_local_enhancers -
                                         n_local_enhancers]
             output_prev = model_upsample(
-                model_downsample(input_i) + output_prev)
+                model_downsample(self.acm(labels, input_i)) + output_prev)
         return output_prev
 
 

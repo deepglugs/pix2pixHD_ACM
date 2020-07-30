@@ -35,7 +35,7 @@ class Pix2PixHDModel(BaseModel):
             netG_input_nc += 1
         if self.use_features:
             netG_input_nc += opt.feat_num
-        if opt.cond:
+        if opt.cond and opt.netG == "global":
             netG_input_nc = opt.ngf
 
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG,
