@@ -366,8 +366,12 @@ class LocalEnhancer(nn.Module):
             model_upsample = getattr(self, 'model'+str(n_local_enhancers)+'_2')
             input_i = input_downsampled[self.n_local_enhancers -
                                         n_local_enhancers]
-            output_prev = model_upsample(
-                model_downsample(self.acm(labels, input_i)) + output_prev)
+            if self.cond:
+                output_prev = model_upsample(
+                    model_downsample(self.acm(labels, input_i)) + output_prev)
+            else:
+                ds = model_downsample(input_i)
+                output_prev = model_upsample(ds + output_prev)
         return output_prev
 
 
