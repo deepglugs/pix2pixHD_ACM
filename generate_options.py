@@ -18,3 +18,5 @@ class GenerateOptions(TestOptions):
                                  help="do live generation. use with image and output")
         self.parser.add_argument('--feature_image', help="feature image file",
                                  default=None)
+        self.parser.add_argument('--video_src', action="store_true",
+                                 help="do live generation from a video source")

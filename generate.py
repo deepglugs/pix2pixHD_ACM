@@ -1,6 +1,7 @@
 import copy
 import os
 import numpy as np
+import time
 
 import torch
 
@@ -14,17 +15,21 @@ from data.gan_utils import get_txt_from_img_fn, encode_txt, get_images, get_voca
                            txt_to_onehot, txt_from_onehot
 
 
-def load_image(img_file, shape):
-    img = Image.open(img_file).convert('RGB')
-
+def do_preprocess(img, shape):
     preprocess = transforms.Compose([
-        transforms.Scale(shape),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5),
-                             (0.5, 0.5, 0.5)),
+    transforms.Scale(shape),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5),
+                         (0.5, 0.5, 0.5)),
     ])
 
     return preprocess(img) * 255.0
+
+
+def load_image(img_file, shape):
+    img = Image.open(img_file).convert('RGB')
+
+    return do_preprocess(img, shape)
 
 
 def is_image(fn):
@@ -33,6 +38,90 @@ def is_image(fn):
             fn.endswith(".jpg") or
             fn.endswith(".webp") or
             fn.endswith(".jpeg"))
+
+
+def get_v4l2_loopback_device(dev, opt):
+    import fcntl
+    import v4l2
+
+    format = v4l2.v4l2_format()
+    format.type = v4l2.V4L2_BUF_TYPE_VIDEO_OUTPUT
+    format.fmt.pix.field = v4l2.V4L2_FIELD_NONE
+    format.fmt.pix.pixelformat = v4l2.V4L2_PIX_FMT_RGB24
+    format.fmt.pix.width = opt.loadSize
+    format.fmt.pix.height = opt.loadSize
+    format.fmt.pix.bytesperline = opt.loadSize * 3
+    format.fmt.pix.sizeimage = opt.loadSize * opt.loadSize * 3
+
+    if not os.path.exists(dev):
+        print(f"Error {dev} does not exist. did you 'sudo modprobe v4l2loopback video_nr=69'?")
+        return
+
+    device = open(dev, 'wb')
+
+    fcntl.ioctl(device, v4l2.VIDIOC_S_FMT, format)
+
+    return device
+
+
+def video_source_generate(opt, model=None):
+    import cv2
+
+    out_dir = opt.output
+    shape = (opt.loadSize, opt.loadSize)
+
+    opt.nThreads = 1   # test code only supports nThreads = 1
+    opt.batchSize = 1  # test code only supports batchSize = 1
+    opt.serial_batches = True  # no shuffle
+    opt.no_flip = True  # no flip
+    opt.label_nc = 0
+    opt.no_instance = True
+    opt.replace = True
+
+    vocab = get_vocab(opt.tokenizer, top=opt.loadSize)
+    model = create_model(opt)
+
+    ret = True
+
+    cap = cv2.VideoCapture(opt.image, cv2.CAP_GSTREAMER)
+    cap.open(opt.image)
+
+    writer = None
+
+    if opt.output:
+        if "/dev/video" in opt.output:
+            writer = get_v4l2_loopback_device(opt.output, opt)
+        else:
+            writer = cv2.VideoWriter(opt.output,
+                                     cv2.VideoWriter_fourcc(*"mp4v"),
+                                     20,
+                                     shape)
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+
+        if not ret:
+            print("failed to read from camera... reopening...")
+            time.sleep(5)
+            cap = cv2.VideoCapture(opt.image, cv2.CAP_GSTREAMER)
+            cap.open(opt.image)
+
+        if frame is None:
+            continue
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        img = do_preprocess(Image.fromarray(frame), shape)
+
+        img_out = do_inference(img, opt, model, vocab)
+
+        img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
+
+        if writer is not None:
+            writer.write(img_out)
+
+        cv2.imshow("window2", img_out)
+        cv2.waitKey(1)
 
 
 def live_generate(opt, model=None):
@@ -91,6 +180,50 @@ def live_generate(opt, model=None):
     app.exec_()
 
 
+def do_inference(img, opt, model, vocab=None,
+                 img_out_file=None, feature_image=None):
+    label = torch.Tensor([0]).cuda()
+
+    shape = (opt.loadSize, opt.loadSize)
+
+    if opt.cond or opt.feature_image:
+        # print("using label!!!")
+        label_file = opt.label
+        if not os.path.isfile(label_file) and img_out_file is not None:
+            label_file = get_txt_from_img_fn(img_out_file, label_files)
+
+            if label_file is None:
+                print(f"could not find label for {img_out_file}")
+
+        if "," in opt.label:
+            label = txt_to_onehot(vocab, opt.label,
+                                  size=opt.loadSize)
+            label = torch.from_numpy(label).float()
+        else:
+            with open(label_file, 'r') as f:
+                data = f.read()
+                label = txt_to_onehot(vocab, data,
+                                      size=opt.loadSize)
+                label = torch.from_numpy(label).float()
+
+            # label = torch.rand(opt.loadSize)
+            # print(label)
+            # print(txt_from_onehot(vocab, label))
+
+        # label = encode_txt(label, img.size(2), model=opt.tokenizer)
+
+    if feature_image is not None:
+        feature_image = feature_image.cuda()
+
+    generated = model.inference(img.view(1, 3, *shape).cuda(),
+                                label.cuda(),
+                                feature_image)
+
+    img_out = util.tensor2im(generated.data[0])
+
+    return img_out
+
+
 def do_generate(opt, model=None):
     img_file = opt.image
     out_dir = opt.output
@@ -132,10 +265,7 @@ def do_generate(opt, model=None):
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
-    vocab = get_vocab(opt.tokenizer, top=opt.loadSize)
-
     print(f"Generating {len(img_files)} images...")
-
 
     for img_file in img_files:
 
@@ -159,43 +289,8 @@ def do_generate(opt, model=None):
             print(ex)
             continue
 
-        label = torch.Tensor([0]).cuda()
-
-        if opt.cond or opt.feature_image:
-            # print("using label!!!")
-            label_file = opt.label
-            if not os.path.isfile(label_file):
-                label_file = get_txt_from_img_fn(img_out, label_files)
-
-                if label_file is None:
-                    print(f"could not find label for {img_out}")
-
-            if "," in opt.label:
-                label = txt_to_onehot(vocab, opt.label,
-                                      size=opt.loadSize)
-                label = torch.from_numpy(label).float()
-            else:
-                with open(label_file, 'r') as f:
-                    data = f.read()
-                    label = txt_to_onehot(vocab, data,
-                                          size=opt.loadSize)
-                    label = torch.from_numpy(label).float()
-
-                # label = torch.rand(opt.loadSize)
-                # print(label)
-                # print(txt_from_onehot(vocab, label))
-
-            # label = encode_txt(label, img.size(2), model=opt.tokenizer)
-
-        if feature_image is not None:
-            feature_image = feature_image.cuda()
-
-        generated = model.inference(img.view(1, 3, *shape).cuda(),
-                                    label.cuda(),
-                                    feature_image)
-
-        img_out = Image.fromarray(
-            util.tensor2im(generated.data[0]))
+        img_out = do_inference(img, opt, model, vocab, img_out, feature_image)
+        img_out = Image.fromarray(img_out)
 
         print(f"creating output for {img_out_fn}")
         img_out.save(img_out_fn)
@@ -279,6 +374,8 @@ def generate():
         do_template(opt)
     elif opt.live:
         live_generate(opt)
+    elif opt.video_src:
+        video_source_generate(opt)
     else:
         do_generate(opt)
 
