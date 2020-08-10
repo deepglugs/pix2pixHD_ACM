@@ -406,17 +406,16 @@ class GlobalGenerator(nn.Module):
             model += [SNConv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1),
                       norm_layer(ngf * mult * 2), activation]
 
-        # self attention
-        for i in range(n_self_attention):
-            filt = ngf * 2 ** (n_downsampling-1) * 2
-            model += [SelfAttention2d(filt),
-                      norm_layer(int(filt)), activation]
-
         # resnet blocks
         mult = 2**n_downsampling
         for i in range(n_blocks):
             model += [ResnetBlock(ngf * mult, padding_type=padding_type,
                                   activation=activation, norm_layer=norm_layer)]
+
+        # self attention
+        for i in range(n_self_attention):
+            model += [SelfAttention2d(ngf * mult),
+                      norm_layer(int(ngf * mult)), activation]
 
         # upsample
         for i in range(n_downsampling):
