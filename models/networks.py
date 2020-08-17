@@ -36,6 +36,15 @@ def get_norm_layer(norm_type='instance'):
             'normalization layer [%s] is not found' % norm_type)
     return norm_layer
 
+
+class Mish(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        # inlining this saves 1 second per epoch (V100 GPU) vs having a temp x and then returning x(!)
+        return x * (torch.tanh(F.softplus(x)))
+
 ##################################################################################
 # Normalization layers
 ##################################################################################
@@ -391,6 +400,8 @@ class GlobalGenerator(nn.Module):
         assert(n_blocks >= 0)
         super(GlobalGenerator, self).__init__()
         activation = nn.ReLU(True)
+
+        activation = Mish()
 
         self.cond = cond
 
