@@ -35,8 +35,8 @@ class Pix2PixHDModel(BaseModel):
             netG_input_nc += 1
         if self.use_features:
             netG_input_nc += opt.feat_num
-        if opt.cond and opt.netG == "global":
-            netG_input_nc = opt.ngf
+        #if opt.cond and opt.netG == "global":
+        #    netG_input_nc = opt.ngf
 
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG,
                                       opt.n_downsample_global, opt.n_blocks_global, opt.n_local_enhancers,
@@ -48,8 +48,8 @@ class Pix2PixHDModel(BaseModel):
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             netD_input_nc = input_nc + opt.output_nc
-            if not opt.no_instance or opt.cond:
-                netD_input_nc += 1
+            #if not opt.no_instance or opt.cond:
+            #    netD_input_nc += 1
 
             self.netD = networks.define_D(netD_input_nc, opt.ndf, opt.n_layers_D, opt.norm, use_sigmoid,
                                           opt.num_D, not opt.no_ganFeat_loss, gpu_ids=self.gpu_ids)
@@ -208,12 +208,12 @@ class Pix2PixHDModel(BaseModel):
                 fake_image = self.netG.forward(input_concat)
 
         # TODO: send labels to discriminator as well
-        if self.opt.cond:
-            dim = inst_map.size(1)
-            v = inst_map.unsqueeze(2).repeat(
-                1, 1, dim).view(-1, 1, dim, dim)
-            input_label = torch.cat(
-                (v, input_concat), dim=1)
+        #if self.opt.cond:
+        #    dim = inst_map.size(1)
+        #    v = inst_map.unsqueeze(2).repeat(
+        #        1, 1, dim).view(-1, 1, dim, dim)
+        #    input_label = torch.cat(
+        #        (v, input_concat), dim=1)
 
         with autocast(enabled=self.opt.fp16):
             # Fake Detection and Loss

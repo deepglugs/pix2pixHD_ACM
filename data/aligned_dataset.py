@@ -31,8 +31,8 @@ class AlignedDataset(BaseDataset):
 
             tags = self.dir_tags
 
-            if os.path.isfile(self.opt.tokenizer):
-                tags = self.opt.tokenizer
+            if os.path.isfile(self.opt.vocab):
+                tags = self.opt.vocab
 
             self.vocab = get_vocab(tags, top=opt.loadSize)
 

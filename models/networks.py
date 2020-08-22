@@ -149,7 +149,7 @@ class Reshape(nn.Module):
 
 # The implementation of ACM (affine combination module)
 class ACM(nn.Module):
-    def __init__(self, channel_num, gf_dim=3, img_size=256):
+    def __init__(self, channel_num, gf_dim=3, img_size=256, vocab_size=512):
         super(ACM, self).__init__()
         self.ngf = channel_num
         self.conv = conv3x3(gf_dim, 128)
@@ -158,27 +158,9 @@ class ACM(nn.Module):
 
         self.img_size = img_size
 
-        """
-        init_w = img_size // 4
-        init_h = img_size // 4
-        dl = self.ngf * init_w * init_h
-        text_encoder = [nn.Linear(img_size, dl),
-                        Reshape(self.ngf, init_w, init_h),
-                        nn.ConvTranspose2d(
-                            self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
-                        nn.InstanceNorm2d(self.ngf),
-                        nn.ReLU(True),
-                        ResnetBlock(self.ngf,
-                                    padding_type="reflect", norm_layer=nn.InstanceNorm2d),
-                        nn.ConvTranspose2d(
-                            self.ngf, self.ngf, kernel_size=3, stride=2, padding=1, output_padding=1),
-                        nn.InstanceNorm2d(self.ngf),
-                        nn.ReLU(True),
-                        ResnetBlock(self.ngf,
-                                    padding_type="reflect", norm_layer=nn.InstanceNorm2d)]
+        text_encoder = [nn.Linear(vocab_size, img_size)]
 
         self.txt_encoder = nn.Sequential(*text_encoder)
-        """
 
     def forward(self, labels, img):
         # print("ACM forward...")
@@ -201,7 +183,7 @@ class ACM(nn.Module):
         # print(f"padding shape: {padding.size()}")
         # labels = torch.cat((labels.float(), padding), dim=2)
 
-        # labels = self.txt_encoder(labels)
+        labels = self.txt_encoder(labels)
 
         # if len(labels.size()) > 2:
         di = 1
@@ -310,13 +292,16 @@ class LocalEnhancer(nn.Module):
         model_global = GlobalGenerator(input_nc, output_nc, ngf_global,
                                        n_downsample_global, n_blocks_global,
                                        norm_layer,
-                                       n_self_attention=n_self_attention).model
+                                       n_self_attention=n_self_attention,
+                                       cond=self.cond).model
         # get rid of final convolution layers
         model_global = [model_global[i] for i in range(len(model_global)-3)]
-        self.model = nn.Sequential(*model_global)
 
         if self.cond:
             self.acm = ACM(acm_dim, img_size=img_size)
+            self.model= MultiSequential(*model_global)
+        else:
+            self.model = nn.Sequential(*model_global)
 
         ###### local enhancer layers #####
         for n in range(1, n_local_enhancers+1):
@@ -367,7 +352,10 @@ class LocalEnhancer(nn.Module):
             input_downsampled.append(self.downsample(input_downsampled[-1]))
 
         # output at coarest level
-        output_prev = self.model(input_downsampled[-1])
+        if self.cond:
+            output_prev = self.model(labels, input_downsampled[-1])
+        else:
+            output_prev = self.model(input_downsampled[-1])
         # build up one layer at a time
         for n_local_enhancers in range(1, self.n_local_enhancers+1):
             model_downsample = getattr(

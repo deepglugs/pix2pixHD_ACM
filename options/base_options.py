@@ -93,8 +93,8 @@ class BaseOptions():
                                  help='number of epochs that we only train the outmost local enhancer')
         self.parser.add_argument(
             '--cond', action='store_true', help='use conditional labels with real images')
-        self.parser.add_argument('--tokenizer', default='gpt2',
-                                 help="tokenizer model to use. Only used with --cond")
+        self.parser.add_argument('--vocab', default=None,
+                                 help="vocab file to use. Only used with --cond")
 
         # for instance-wise features
         self.parser.add_argument('--no_instance', action='store_true',
