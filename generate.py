@@ -12,15 +12,15 @@ from PIL import Image
 from torchvision import transforms
 
 from data.gan_utils import get_txt_from_img_fn, encode_txt, get_images, get_vocab, \
-                           txt_to_onehot, txt_from_onehot
+    txt_to_onehot, txt_from_onehot
 
 
 def do_preprocess(img, shape):
     preprocess = transforms.Compose([
-    transforms.Scale(shape),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5),
-                         (0.5, 0.5, 0.5)),
+        transforms.Resize(shape),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5),
+                             (0.5, 0.5, 0.5)),
     ])
 
     return preprocess(img) * 255.0
@@ -264,6 +264,8 @@ def do_generate(opt, model=None):
         os.makedirs(out_dir, exist_ok=True)
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
+
+    vocab = get_vocab(opt.vocab, top=opt.loadSize)
 
     print(f"Generating {len(img_files)} images...")
 
