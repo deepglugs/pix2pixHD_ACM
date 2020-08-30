@@ -181,7 +181,7 @@ def live_generate(opt, model=None):
 
 
 def do_inference(img, opt, model, vocab=None,
-                 img_out_file=None, feature_image=None):
+                 img_out_file=None, feature_image=None, label_files=None):
     label = torch.Tensor([0]).cuda()
 
     shape = (opt.loadSize, opt.loadSize)
@@ -291,7 +291,8 @@ def do_generate(opt, model=None):
             print(ex)
             continue
 
-        img_out = do_inference(img, opt, model, vocab, img_out, feature_image)
+        img_out = do_inference(img, opt, model, vocab, img_out, feature_image,
+                               label_files=label_files)
         img_out = Image.fromarray(img_out)
 
         print(f"creating output for {img_out_fn}")
