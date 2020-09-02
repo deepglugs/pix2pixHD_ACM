@@ -83,11 +83,12 @@ class AdaptiveInstanceNorm2d(nn.Module):
 
 
 def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_global=9, n_local_enhancers=1,
-             n_blocks_local=3, norm='instance', cond=False, n_self_attention=1, img_size=512, gpu_ids=[]):
+             n_blocks_local=3, norm='instance', cond=False, n_self_attention=1, img_size=512, vocab_size=512,
+             gpu_ids=[]):
     norm_layer = get_norm_layer(norm_type=norm)
     if netG == 'global':
         netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer, cond=cond,
-                               n_self_attention=n_self_attention)
+                               n_self_attention=n_self_attention, img_size=img_size, vocab_size=vocab_size)
     elif netG == 'local':
         netG = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global,
                              n_local_enhancers, n_blocks_local, norm_layer, cond=cond,
@@ -276,7 +277,7 @@ class VGGLoss(nn.Module):
 class LocalEnhancer(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=32, n_downsample_global=3, n_blocks_global=9,
                  n_local_enhancers=1, n_blocks_local=3, norm_layer=nn.BatchNorm2d, padding_type='reflect', cond=False,
-                 n_self_attention=0, img_size=512, acm_dim=32):
+                 n_self_attention=0, acm_dim=32, img_size=512, vocab_size=512):
         super(LocalEnhancer, self).__init__()
         self.n_local_enhancers = n_local_enhancers
         self.cond = cond
@@ -289,17 +290,25 @@ class LocalEnhancer(nn.Module):
         print(f"making global ngf: {ngf_global}")
         print("***********")
 
-        model_global = GlobalGenerator(input_nc, output_nc, ngf_global,
-                                       n_downsample_global, n_blocks_global,
-                                       norm_layer,
-                                       n_self_attention=n_self_attention,
-                                       cond=self.cond).model
+        global_img_size = img_size // (2 * n_local_enhancers)
+
+        print("***********")
+        print(f"global image size: {global_img_size}")
+        print("***********")
+
+        model_global = GlobalGenerator(
+            input_nc, output_nc, ngf_global,
+            n_downsample_global, n_blocks_global,
+            norm_layer,
+            n_self_attention=n_self_attention,
+            cond=self.cond,
+            img_size=global_img_size,
+            vocab_size=vocab_size).model
         # get rid of final convolution layers
         model_global = [model_global[i] for i in range(len(model_global)-3)]
 
         if self.cond:
-            self.acm = ACM(acm_dim, img_size=img_size)
-            self.model= MultiSequential(*model_global)
+            self.model = MultiSequential(*model_global)
         else:
             self.model = nn.Sequential(*model_global)
 
@@ -307,6 +316,13 @@ class LocalEnhancer(nn.Module):
         for n in range(1, n_local_enhancers+1):
             # downsample
             ngf_global = ngf * (2**(n_local_enhancers-n))
+            global_img_size = img_size // (2 ** (n_local_enhancers-n))
+
+            if self.cond:
+                print(f"acm{n} image size: {global_img_size}")
+                acm = ACM(acm_dim, img_size=global_img_size,
+                          vocab_size=vocab_size)
+                setattr(self, 'acm'+str(n), acm)
 
             model_downsample = [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf_global, kernel_size=7, padding=0),
                                 norm_layer(ngf_global), nn.ReLU(True),
@@ -363,9 +379,11 @@ class LocalEnhancer(nn.Module):
             model_upsample = getattr(self, 'model'+str(n_local_enhancers)+'_2')
             input_i = input_downsampled[self.n_local_enhancers -
                                         n_local_enhancers]
+
             if self.cond:
+                acm = getattr(self, 'acm' + str(n_local_enhancers))
                 output_prev = model_upsample(
-                    model_downsample(self.acm(labels, input_i)) + output_prev)
+                    model_downsample(acm(labels, input_i)) + output_prev)
             else:
                 ds = model_downsample(input_i)
                 output_prev = model_upsample(ds + output_prev)
@@ -384,7 +402,7 @@ class MultiSequential(nn.Sequential):
 
 class GlobalGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, n_downsampling=3, n_blocks=9, norm_layer=nn.BatchNorm2d,
-                 padding_type='reflect', cond=False, n_self_attention=0, acm_dim=64):
+                 padding_type='reflect', cond=False, n_self_attention=0, acm_dim=64, img_size=512, vocab_size=512):
         assert(n_blocks >= 0)
         super(GlobalGenerator, self).__init__()
         activation = nn.ReLU(True)
@@ -395,7 +413,7 @@ class GlobalGenerator(nn.Module):
 
         model = []
         if self.cond:
-            model = [ACM(acm_dim)]
+            model = [ACM(acm_dim, img_size=img_size, vocab_size=vocab_size)]
 
         model += [nn.ReflectionPad2d(3), nn.Conv2d(input_nc, ngf,
                                                    kernel_size=7, padding=0), norm_layer(ngf), activation]

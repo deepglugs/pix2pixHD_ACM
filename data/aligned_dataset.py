@@ -34,7 +34,7 @@ class AlignedDataset(BaseDataset):
             if os.path.isfile(self.opt.vocab):
                 tags = self.opt.vocab
 
-            self.vocab = get_vocab(tags, top=opt.loadSize)
+            self.vocab = get_vocab(tags, top=opt.vocab_size)
 
             assert len(self.label_files), f"Could not find any label files in {opt.dataroot}"
 
@@ -103,7 +103,7 @@ class AlignedDataset(BaseDataset):
             #                         model=self.opt.tokenizer)
             with open(label_file, 'r') as f:
                 inst_tensor = txt_to_onehot(self.vocab, f.read(),
-                                            size=A_tensor.size(2))
+                                            size=self.opt.vocab_size)
         elif self.opt.cond:
             raise Exception(f"label file for {self.A_paths[index]} not found")
 
