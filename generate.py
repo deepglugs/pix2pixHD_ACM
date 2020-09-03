@@ -197,13 +197,13 @@ def do_inference(img, opt, model, vocab=None,
 
         if "," in opt.label:
             label = txt_to_onehot(vocab, opt.label,
-                                  size=opt.loadSize)
+                                  size=opt.vocab_size)
             label = torch.from_numpy(label).float()
         else:
             with open(label_file, 'r') as f:
                 data = f.read()
                 label = txt_to_onehot(vocab, data,
-                                      size=opt.loadSize)
+                                      size=opt.vocab_size)
                 label = torch.from_numpy(label).float()
 
             # label = torch.rand(opt.loadSize)
