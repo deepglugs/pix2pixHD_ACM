@@ -32,6 +32,13 @@ def get_params(opt, size):
 
 def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False):
     transform_list = []
+
+    if 'crop_and_scale' in opt.resize_or_crop and is_A:
+        x = random.randint(0, 5)
+        y = random.randint(0, 5)
+        fine_mod = random.randint(0, 5)
+        transform_list.append(transforms.Lambda(lambda img: __crop(img, (x, y), opt.fineSize - fine_mod)))
+
     if 'resize' in opt.resize_or_crop:
         osize = [opt.loadSize, opt.loadSize]
         transform_list.append(transforms.Scale(osize, method))   

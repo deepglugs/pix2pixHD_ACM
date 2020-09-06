@@ -265,7 +265,13 @@ def do_generate(opt, model=None):
     else:
         os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
-    vocab = get_vocab(opt.vocab, top=opt.loadSize)
+    if opt.cond:
+        vocab = get_vocab(opt.vocab, top=opt.loadSize)
+    else:
+        vocab = None
+
+    if opt.vocab_size is None and vocab is not None:
+        opt.vocab_size = len(vocab)
 
     print(f"Generating {len(img_files)} images...")
 
