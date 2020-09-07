@@ -147,6 +147,8 @@ python3 train.py --name acm_gen5_cond_local \
 
 ### global + local network training.
 
+This technique is required for the really high-resolutions.
+
 This was described in the original paper, but documentation was lacking in the
 original pix2pixHD project. So here's a good example of conditional global
 training and local fine tuning:

@@ -33,19 +33,25 @@ def get_params(opt, size):
 def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False):
     transform_list = []
 
-    if 'crop_and_scale' in opt.resize_or_crop and is_A:
+    if 'resize' in opt.resize_or_crop:
+        osize = [opt.loadSize, opt.loadSize]
+        transform_list.append(transforms.Resize(osize, method))
+
+    if 'crop_and_resize' in opt.resize_or_crop and is_A:
         x = random.randint(0, 5)
         y = random.randint(0, 5)
         fine_mod = random.randint(0, 5)
-        transform_list.append(transforms.Lambda(lambda img: __crop(img, (x, y), opt.fineSize - fine_mod)))
+
+        # print(f"will crop and resize {x}, {y} to {fine_mod}")
+        transform_list.append(transforms.Lambda(lambda img: __crop(img, (x, y), opt.loadSize - fine_mod)))
 
     if 'resize' in opt.resize_or_crop:
         osize = [opt.loadSize, opt.loadSize]
-        transform_list.append(transforms.Scale(osize, method))   
+        transform_list.append(transforms.Resize(osize, method))
     elif 'scale_width' in opt.resize_or_crop:
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.loadSize, method)))
         
-    if 'crop' in opt.resize_or_crop:
+    if 'crop' in opt.resize_or_crop and 'crop_and_resize' not in opt.resize_or_crop:
         transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.fineSize)))
 
     if "jitter" in opt.resize_or_crop and is_A:
