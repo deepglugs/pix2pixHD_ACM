@@ -57,6 +57,9 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False)
     if "jitter" in opt.resize_or_crop and is_A:
         transform_list.append(transforms.ColorJitter(0.5, 0.5, 0.5))
 
+    if "rotate" in opt.resize_or_crop and is_A:
+        transform_list.append(transforms.RandomRotation([-2, 2]))
+
     if opt.resize_or_crop == 'none':
         base = float(2 ** opt.n_downsample_global)
         if opt.netG == 'local':
@@ -73,11 +76,13 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False)
                                                 (0.5, 0.5, 0.5))]
     return transforms.Compose(transform_list)
 
-def normalize():    
+
+def normalize():
     return transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
+
 def __make_power_2(img, base, method=Image.BICUBIC):
-    ow, oh = img.size        
+    ow, oh = img.size
     h = int(round(oh / base) * base)
     w = int(round(ow / base) * base)
     if (h == oh) and (w == ow):
@@ -87,16 +92,17 @@ def __make_power_2(img, base, method=Image.BICUBIC):
 def __scale_width(img, target_width, method=Image.BICUBIC):
     ow, oh = img.size
     if (ow == target_width):
-        return img    
+        return img
     w = target_width
-    h = int(target_width * oh / ow)    
+    h = int(target_width * oh / ow)
     return img.resize((w, h), method)
+
 
 def __crop(img, pos, size):
     ow, oh = img.size
     x1, y1 = pos
     tw = th = size
-    if (ow > tw or oh > th):        
+    if (ow > tw or oh > th):
         return img.crop((x1, y1, x1 + tw, y1 + th))
     return img
 
