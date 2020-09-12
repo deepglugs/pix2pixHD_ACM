@@ -1,45 +1,15 @@
-<img src='imgs/teaser_720.gif' align="right" width=360>
-
-<br><br><br><br>
-
 # pix2pixHD_ACM
-## Image-to-image translation at 2k/1k resolution
-- Our label-to-streetview results
+## Image-to-image translation at 1k resolution
+- Our pose-to-lara results
+tags: "1girl, transparent_background, white_hair, long_hair, green_eyes,  large_breasts, cleavage, white_tanktop, skirt, plaid, earrings, tanktop, cleavage, ponytail, school_uniform"
+<p align='center'>
+  <img src='imgs/character_portrait.png' width='400'/>
+  <img src='imgs/g1_portrait.png' width='400'/>
+</p>
+tags: "1girl, transparent_background, black_hair, long_hair, dragonscale_tanktop, skirt, plaid, large_breasts, succubus, wings, black_wings, cleavage, tanktop, ponytail"
 <p align='center'>  
-  <img src='imgs/teaser_label.png' width='400'/>
-  <img src='imgs/teaser_ours.jpg' width='400'/>
-</p>
-- Interactive editing results
-<p align='center'>  
-  <img src='imgs/teaser_style.gif' width='400'/>
-  <img src='imgs/teaser_label.gif' width='400'/>
-</p>
-- Additional streetview results
-<p align='center'>
-  <img src='imgs/cityscapes_1.jpg' width='400'/>
-  <img src='imgs/cityscapes_2.jpg' width='400'/>
-</p>
-<p align='center'>
-  <img src='imgs/cityscapes_3.jpg' width='400'/>
-  <img src='imgs/cityscapes_4.jpg' width='400'/>
-</p>
-
-- Label-to-face and interactive editing results
-<p align='center'>
-  <img src='imgs/face1_1.jpg' width='250'/>
-  <img src='imgs/face1_2.jpg' width='250'/>
-  <img src='imgs/face1_3.jpg' width='250'/>
-</p>
-<p align='center'>
-  <img src='imgs/face2_1.jpg' width='250'/>
-  <img src='imgs/face2_2.jpg' width='250'/>
-  <img src='imgs/face2_3.jpg' width='250'/>
-</p>
-
-- Our editing interface
-<p align='center'>
-  <img src='imgs/city_short.gif' width='330'/>
-  <img src='imgs/face_short.gif' width='450'/>
+  <img src='imgs/character_portrait.png' width='400'/>
+  <img src='imgs/s_portrait.png' width='400'/>
 </p>
 
 ## Prerequisites
