@@ -1,12 +1,12 @@
 # pix2pixHD_ACM
-## Image-to-image translation at 1k resolution
+## Image-to-image translation at 512px resolution
 - Our pose-to-lara results
-tags: "1girl, transparent_background, white_hair, long_hair, green_eyes,  large_breasts, cleavage, white_tanktop, skirt, plaid, earrings, tanktop, cleavage, ponytail, school_uniform"
+(tags: "1girl, transparent_background, white_hair, long_hair, green_eyes,  large_breasts, cleavage, white_tanktop, skirt, plaid, earrings, tanktop, cleavage, ponytail, school_uniform")
 <p align='center'>
   <img src='imgs/character_portrait.png' width='400'/>
   <img src='imgs/g1_portrait.png' width='400'/>
 </p>
-tags: "1girl, transparent_background, black_hair, long_hair, dragonscale_tanktop, skirt, plaid, large_breasts, succubus, wings, black_wings, cleavage, tanktop, ponytail"
+(tags: "1girl, transparent_background, black_hair, long_hair, dragonscale_tanktop, skirt, plaid, large_breasts, succubus, wings, black_wings, cleavage, tanktop, ponytail")
 <p align='center'>  
   <img src='imgs/character_portrait.png' width='400'/>
   <img src='imgs/s_portrait.png' width='400'/>
@@ -15,14 +15,13 @@ tags: "1girl, transparent_background, black_hair, long_hair, dragonscale_tanktop
 ## Prerequisites
 - Linux or macOS
 - Python 3
-- NVIDIA GPU (11G memory or larger) + CUDA cuDNN
 
 ## Getting Started
 ### Installation
-- Install PyTorch 1.7+ and dependencies from http://pytorch.org
+- Install PyTorch 1.6+ and dependencies from http://pytorch.org
 - Install python libraries [dominate](https://github.com/Knio/dominate).
 ```bash
-pip install dominate
+pip install dominate torch==1.6.0
 ```
 - Clone this repo:
 ```bash
