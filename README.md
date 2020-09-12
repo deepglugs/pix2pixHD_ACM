@@ -51,8 +51,9 @@ Instance and label map modes are not supported in pix2pixHD_ACM
 
 ### Additional modifications over pix2pixHD:
 
-We have added support for Adaptive Instance Normalization, Spectral Normalization
-and added optional attention layers to both generator and discriminators.
+We have added support for Adaptive Instance Normalization (use --norm adain),
+Spectral Normalization and added optional attention layers to both generator
+and discriminators.
 
 ### Generating
 
@@ -83,8 +84,8 @@ The test results will be saved to a html file here: `./results/label2city_1024p/
 More example scripts can be found in the `scripts` directory.
 
 ### Dataset
-- We use the Cityscapes dataset. To train a model on the full dataset, please download it from the [official website](https://www.cityscapes-dataset.com/) (registration required).
-After downloading, please put it under the `datasets` folder in the same way the example images are provided.
+- We created a dataset from wildeerstudio's lara model and used OpenPose-Keras 
+to generate poses.
 
 
 ### Training
