@@ -5,10 +5,9 @@ from torch.autograd import Variable
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+
+# TODO: is there a generic autocast?
 from torch.cuda.amp import autocast
-
-# from data.gan_utils import onehot_to_image
-
 
 class Pix2PixHDModel(BaseModel):
     def name(self):
