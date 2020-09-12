@@ -140,28 +140,28 @@ class Pix2PixHDModel(BaseModel):
 
     def encode_input(self, label_map, inst_map=None, real_image=None, feat_map=None, infer=False):
         if self.opt.label_nc == 0:
-            input_label = label_map.data.cuda()
+            input_label = label_map.data.to(self.opt.device)
         else:
             # create one-hot vector for label map
             size = label_map.size()
             oneHot_size = (size[0], self.opt.label_nc, size[2], size[3])
-            input_label = torch.cuda.FloatTensor(
-                torch.Size(oneHot_size)).zero_()
+            input_label = torch.FloatTensor(
+                torch.Size(oneHot_size)).zero_().to(self.opt.device)
             input_label = input_label.scatter_(
-                1, label_map.data.long().cuda(), 1.0)
+                1, label_map.data.long().to(self.opt.device), 1.0)
             if self.opt.data_type == 16:
                 input_label = input_label.half()
 
         # get edges from instance map
         if not self.opt.no_instance:
-            inst_map = inst_map.data.cuda()
+            inst_map = inst_map.data.to(self.opt.device)
             edge_map = self.get_edges(inst_map)
             input_label = torch.cat((input_label, edge_map), dim=1)
         input_label = Variable(input_label, requires_grad=not infer)
 
         # real images for training
         if real_image is not None:
-            real_image = Variable(real_image.data.cuda())
+            real_image = Variable(real_image.data.to(self.opt.device))
 
         # instance map for feature encoding
         """
@@ -174,7 +174,7 @@ class Pix2PixHDModel(BaseModel):
         """
 
         if not infer and (self.use_features or self.opt.cond):
-            inst_map = inst_map.float().cuda()
+            inst_map = inst_map.float().to(self.opt.device)
 
         return input_label, inst_map, real_image, feat_map
 
@@ -302,11 +302,11 @@ class Pix2PixHDModel(BaseModel):
         return feat_map
 
     def encode_features(self, image, inst):
-        image = Variable(image.cuda(), volatile=True)
+        image = Variable(image.to(self.opt.device), volatile=True)
         feat_num = self.opt.feat_num
         h, w = inst.size()[2], inst.size()[3]
         block_num = 32
-        feat_map = self.netE.forward(image, inst.cuda())
+        feat_map = self.netE.forward(image, inst.to(self.opt.device))
         inst_np = inst.cpu().numpy().astype(int)
         feature = {}
         for i in range(self.opt.label_nc):
@@ -324,7 +324,7 @@ class Pix2PixHDModel(BaseModel):
         return feature
 
     def get_edges(self, t):
-        edge = torch.cuda.ByteTensor(t.size()).zero_()
+        edge = torch.to(self.opt.device).ByteTensor(t.size()).zero_()
         edge[:, :, :, 1:] = edge[:, :, :, 1:] | (
             t[:, :, :, 1:] != t[:, :, :, :-1])
         edge[:, :, :, :-1] = edge[:, :, :, :-

@@ -50,6 +50,8 @@ class BaseOptions():
             '--input_nc', type=int, default=3, help='# of input image channels')
         self.parser.add_argument(
             '--output_nc', type=int, default=3, help='# of output image channels')
+        self.parser.add_argument(
+            '--device', type=str, default='cuda', help='compute device')
 
         # for setting inputs
         self.parser.add_argument(
@@ -140,7 +142,7 @@ class BaseOptions():
                 self.opt.gpu_ids.append(id)
 
         # set gpu ids
-        if len(self.opt.gpu_ids) > 0:
+        if self.opt.device == "cuda" and len(self.opt.gpu_ids) > 0:
             print(self.opt.gpu_ids[0])
             torch.cuda.set_device(self.opt.gpu_ids[0])
 

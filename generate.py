@@ -113,7 +113,7 @@ def video_source_generate(opt, model=None):
 
         img = do_preprocess(Image.fromarray(frame), shape)
 
-        img_out = do_inference(img, opt, model, vocab)
+        img_out = do_inference(img, opt, model, vocab, device=opt.device)
 
         img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
 
@@ -181,8 +181,9 @@ def live_generate(opt, model=None):
 
 
 def do_inference(img, opt, model, vocab=None,
-                 img_out_file=None, feature_image=None, label_files=None):
-    label = torch.Tensor([0]).cuda()
+                 img_out_file=None, feature_image=None, label_files=None,
+                 device='cuda'):
+    label = torch.Tensor([0]).to(device)
 
     shape = (opt.loadSize, opt.loadSize)
 
@@ -213,10 +214,10 @@ def do_inference(img, opt, model, vocab=None,
         # label = encode_txt(label, img.size(2), model=opt.tokenizer)
 
     if feature_image is not None:
-        feature_image = feature_image.cuda()
+        feature_image = feature_image.to(device)
 
-    generated = model.inference(img.view(1, 3, *shape).cuda(),
-                                label.cuda(),
+    generated = model.inference(img.view(1, 3, *shape).to(device),
+                                label.to(device),
                                 feature_image)
 
     img_out = util.tensor2im(generated.data[0])
@@ -237,6 +238,7 @@ def do_generate(opt, model=None):
     opt.no_instance = True
     opt.gpu_ids = []
     opt.isTrain = False
+    device = opt.device
 
     feature_image = None
     if opt.feature_image is not None:
@@ -245,7 +247,7 @@ def do_generate(opt, model=None):
         opt.instance_feat = True
 
     if model is None:
-        model = create_model(opt).cuda()
+        model = create_model(opt).to(device)
 
     if os.path.isfile(img_file):
         img_files = [img_file]
@@ -298,7 +300,8 @@ def do_generate(opt, model=None):
             continue
 
         img_out = do_inference(img, opt, model, vocab, img_out, feature_image,
-                               label_files=label_files)
+                               label_files=label_files,
+                               device=device)
         img_out = Image.fromarray(img_out)
 
         print(f"creating output for {img_out_fn}")
