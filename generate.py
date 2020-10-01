@@ -189,29 +189,35 @@ def do_inference(img, opt, model, vocab=None,
 
     if opt.cond or opt.feature_image:
         # print("using label!!!")
+        label = None
         label_file = opt.label
-        if not os.path.isfile(label_file) and img_out_file is not None:
-            label_file = get_txt_from_img_fn(img_out_file, label_files)
 
-            if label_file is None:
-                print(f"could not find label for {img_out_file}")
-
-        if "," in opt.label:
-            label = txt_to_onehot(vocab, opt.label,
-                                  size=opt.vocab_size)
-            label = torch.from_numpy(label).float()
-        else:
-            with open(label_file, 'r') as f:
-                data = f.read()
-                label = txt_to_onehot(vocab, data,
+        if label_file is not None:
+            tmp_label = txt_to_onehot(vocab, opt.label,
                                       size=opt.vocab_size)
-                label = torch.from_numpy(label).float()
 
-            # label = torch.rand(opt.loadSize)
-            # print(label)
-            # print(txt_from_onehot(vocab, label))
+            if np.any(tmp_label):
+                label = torch.from_numpy(tmp_label).float()
 
-        # label = encode_txt(label, img.size(2), model=opt.tokenizer)
+        if label is None:
+            if label_file is not None and os.path.isfile(label_file):
+                with open(label_file, 'r') as f:
+                    data = f.read()
+                    label = txt_to_onehot(vocab, data,
+                                          size=opt.vocab_size)
+                    label = torch.from_numpy(label).float()
+
+            elif img_out_file is not None:
+                label_file = get_txt_from_img_fn(img_out_file, label_files)
+
+                if label_file is None:
+                    print(f"could not find label for {img_out_file}")
+                else:
+                    with open(label_file, 'r') as f:
+                        data = f.read()
+                        label = txt_to_onehot(vocab, data,
+                                              size=opt.vocab_size)
+                        label = torch.from_numpy(label).float()
 
     if feature_image is not None:
         feature_image = feature_image.to(device)

@@ -143,6 +143,12 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             model.module.save('latest')
             np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
 
+            if opt.autoload:
+                try:
+                    model.module.initialize(opt)
+                except Exception as ex:
+                    pass
+
         if epoch_iter >= dataset_size:
             break
 

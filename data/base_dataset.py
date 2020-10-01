@@ -38,26 +38,31 @@ def get_params(opt, size):
     y = random.randint(0, np.maximum(0, new_h - opt.fineSize))
 
     flip = random.random() > 0.5
-    return {"random_load_size": (rand_w, rand_h), 'crop_pos': (x, y), 'flip': flip}
+
+    landscape = random.random() < opt.crop_prob
+
+    return {"random_load_size": (rand_w, rand_h),
+            'crop_pos': (x, y),
+            'flip': flip,
+            "landscape": landscape}
 
 
 def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False):
     transform_list = []
 
-    if 'resize' in opt.resize_or_crop:
-        osize = [opt.loadSize, opt.loadSize]
-        transform_list.append(transforms.Resize(osize, method))
-
     did_crop_resize = False
 
-    if 'crop_and_resize' in opt.resize_or_crop and is_A:
+    if 'stretch' in opt.resize_or_crop and is_A:
         did_crop_resize = True
-        x = random.randint(0, 5)
-        y = random.randint(0, 5)
-        fine_mod = random.randint(0, 5)
+        x = random.randint(0, 10)
+        y = random.randint(0, 10)
+        fine_mod = random.randint(0, 10)
 
         # print(f"will crop and resize {x}, {y} to {fine_mod}")
-        transform_list.append(transforms.Lambda(lambda img: __crop(img, (x, y), opt.loadSize - fine_mod)))
+        transform_list.append(transforms.Lambda(
+            lambda img: __scale_width(img, opt.loadSize, method)))
+        transform_list.append(transforms.Lambda(
+            lambda img: __crop(img, (x, y), opt.loadSize - fine_mod)))
 
     if 'resize' in opt.resize_or_crop:
         osize = [opt.loadSize, opt.loadSize]
@@ -68,13 +73,15 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False)
         if 'random_load_size' in opt.resize_or_crop:
             rsize, _ = params['random_load_size']
 
-        transform_list.append(transforms.Lambda(lambda img: __scale_width(img, rsize, method)))
+        transform_list.append(transforms.Lambda(
+            lambda img: __scale_width(img, rsize, method)))
 
     if 'crop' in opt.resize_or_crop and not did_crop_resize:
-        transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.fineSize)))
+        transform_list.append(transforms.Lambda(
+            lambda img: __crop(img, params['crop_pos'], opt.fineSize)))
 
     if 'shrink' in opt.resize_or_crop and is_A:
-        x = random.randint(0, 2)
+        x = random.randint(0, 10)
         transform_list.append(
             transforms.Lambda(lambda img: resize_border(img, x)))
 
@@ -84,17 +91,24 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False)
     if "rotate" in opt.resize_or_crop and is_A:
         transform_list.append(transforms.RandomRotation([-2, 2]))
 
-    if "landscape" in opt.resize_or_crop:
-        transform_list.append(transforms.Lambda(lambda img: landscape_crop(img, params['crop_pos'], opt.fineSize, is_A)))
+    if "landscape" in opt.resize_or_crop and params['landscape']:
+        transform_list.append(
+            transforms.Lambda(lambda img: landscape_crop(img, params['crop_pos'],
+                                                         opt.fineSize, is_A)))
+    elif "landscape" in opt.resize_or_crop:
+        transform_list.append(transforms.Lambda(
+            lambda img: __scale_width(img, opt.fineSize, method)))
 
     if opt.resize_or_crop == 'none':
         base = float(2 ** opt.n_downsample_global)
         if opt.netG == 'local':
             base *= (2 ** opt.n_local_enhancers)
-        transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base, method)))
+        transform_list.append(transforms.Lambda(
+            lambda img: __make_power_2(img, base, method)))
 
     if opt.isTrain and not opt.no_flip:
-        transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
+        transform_list.append(transforms.Lambda(
+            lambda img: __flip(img, params['flip'])))
 
     transform_list += [transforms.ToTensor()]
 
@@ -194,7 +208,8 @@ def landscape_crop(img, pos, fine_size, is_A):
     aspect = img_l.size[0] / fine_size
     h_aspect = img_l.size[1] / fine_size
 
-    img = __crop(img_l, pos, int(img_l.size[1] * h_aspect), img_l.size[0] * h_aspect)
+    img = __crop(img_l, pos, int(
+        img_l.size[1] * h_aspect), img_l.size[0] * h_aspect)
 
     # img.save(f"tmp/img_{'A' if is_A else 'B'}.png")
 
@@ -206,7 +221,7 @@ def landscape_crop(img, pos, fine_size, is_A):
 
     img = delandscape(img, fine_size, fine_size)
 
-    #print(f"final size: {img.size}")
+    # print(f"final size: {img.size}")
 
     return img
 
