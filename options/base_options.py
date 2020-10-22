@@ -144,7 +144,11 @@ class BaseOptions():
         # set gpu ids
         if self.opt.device == "cuda" and len(self.opt.gpu_ids) > 0:
             print(self.opt.gpu_ids[0])
-            torch.cuda.set_device(self.opt.gpu_ids[0])
+            try:
+                torch.cuda.set_device(self.opt.gpu_ids[0])
+            except RuntimeError:
+                print("no cuda device found. using cpu instead")
+                self.opt.devices = 'cpu'
 
         args = vars(self.opt)
 

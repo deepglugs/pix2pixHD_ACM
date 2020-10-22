@@ -222,6 +222,9 @@ def do_inference(img, opt, model, vocab=None,
     if feature_image is not None:
         feature_image = feature_image.to(device)
 
+    if label is None:
+        label = torch.zeros((1, opt.vocab_size)).to(device)
+
     generated = model.inference(img.view(1, 3, *shape).to(device),
                                 label.to(device),
                                 feature_image)
