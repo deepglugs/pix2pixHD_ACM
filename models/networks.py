@@ -5,6 +5,7 @@ import functools
 from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
+import math
 
 from models.layers import SNConv2d
 
@@ -293,7 +294,7 @@ class LocalEnhancer(nn.Module):
         print(f"making global ngf: {ngf_global}")
         print("***********")
 
-        global_img_size = img_size // (2 * n_local_enhancers)
+        global_img_size = 2 ** int(math.log(img_size) / math.log(2) - n_local_enhancers)
 
         print("***********")
         print(f"global image size: {global_img_size}")
@@ -319,7 +320,10 @@ class LocalEnhancer(nn.Module):
         for n in range(1, n_local_enhancers+1):
             # downsample
             ngf_global = ngf * (2**(n_local_enhancers-n))
-            global_img_size = img_size // (2 ** (n_local_enhancers-n))
+            # global_img_size = img_size // (2 ** (n_local_enhancers-n))
+            # int(math.log(img_size) / math.log(2) - (n_upsampling * 2))
+
+            global_img_size = 2 ** int(math.log(img_size) / math.log(2) - (n_local_enhancers - n))
 
             if self.cond:
                 print(f"acm{n} image size: {global_img_size}")
