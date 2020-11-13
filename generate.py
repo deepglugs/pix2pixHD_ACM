@@ -314,7 +314,10 @@ def do_generate(opt, model=None):
         img_out = Image.fromarray(img_out)
 
         print(f"creating output for {img_out_fn}")
-        img_out.save(img_out_fn)
+        if opt.webp:
+            img_out.save(img_out_fn, "WEBP", lossless=True)
+        else:
+            img_out.save(img_out_fn)
 
     del model
 

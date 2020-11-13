@@ -20,3 +20,5 @@ class GenerateOptions(TestOptions):
                                  default=None)
         self.parser.add_argument('--video_src', action="store_true",
                                  help="do live generation from a video source")
+        self.parser.add_argument('--webp', action="store_true",
+                                 help="save as webp lossless file")
