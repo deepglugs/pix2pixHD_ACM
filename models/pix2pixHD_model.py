@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 import os
 from torch.autograd import Variable
 from util.image_pool import ImagePool
@@ -207,9 +208,23 @@ class Pix2PixHDModel(BaseModel):
 
         # TODO: send labels to discriminator as well
         if self.opt.cond:
+
             dim = inst_map.size(1)
-            v = inst_map.unsqueeze(2).repeat(
+            img_size = input_concat.size(-1)
+            pad_len = max(0, img_size - dim)
+
+            # print(inst_map.size())
+            # print(f"pad length required: {pad_len}")
+
+            v = F.pad(inst_map, (0, pad_len))
+            dim = v.size(1)
+
+            v = v.unsqueeze(2).repeat(
                 1, 1, dim).view(-1, 1, dim, dim)
+
+            # print(v.size())
+            # print(input_concat.size())
+
             input_label = torch.cat(
                 (v, input_concat), dim=1)
 
