@@ -352,6 +352,8 @@ def do_template(opt):
             model_opts[model] = template["model_options"][model]
             # print(model_opts[model])
 
+    print(f"torch device: {opt.device}")
+
     for m in template["models"]:
 
         for model_name, imgs in m.items():
