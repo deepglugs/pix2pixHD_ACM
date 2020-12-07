@@ -315,6 +315,11 @@ def do_generate(opt, model=None):
 
         print(f"creating output for {img_out_fn}")
         if opt.webp:
+            ext = os.path.splitext(img_out_fn)[1]
+
+            if ext != ".webp":
+                img_out_fn = img_out_fn.replace(ext, ".webp")
+
             img_out.save(img_out_fn, "WEBP", lossless=True)
         else:
             img_out.save(img_out_fn)
@@ -359,7 +364,8 @@ def do_template(opt):
         for model_name, imgs in m.items():
             print(f'model filename: {model_name}')
 
-            opt.name = model_name
+            if opt.name is None:
+                opt.name = model_name
 
             if model_name in model_opts.keys():
                 for key, val in model_opts[model_name].items():

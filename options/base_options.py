@@ -12,7 +12,7 @@ class BaseOptions():
 
     def initialize(self):
         # experiment specifics
-        self.parser.add_argument('--name', type=str, default='label2city',
+        self.parser.add_argument('--name', type=str, default=None,
                                  help='name of the experiment. It decides where to store samples and models')
         self.parser.add_argument(
             '--load_config', action='store_true', help='load default options from the opt.yaml')
@@ -162,10 +162,10 @@ class BaseOptions():
         print('-------------- End ----------------')
 
         # save to the disk
-        expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
-        util.mkdirs(expr_dir)
 
         if save and not self.opt.continue_train:
+            expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
+            util.mkdirs(expr_dir)
             file_name = os.path.join(expr_dir, 'opt.txt')
             with open(file_name, 'wt') as opt_file:
                 opt_file.write('------------ Options -------------\n')
