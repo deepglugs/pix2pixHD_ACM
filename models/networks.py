@@ -613,7 +613,7 @@ class NLayerDiscriminator(nn.Module):
         # TODO: use n_self_attention and increase number of self attention layers
 
         sequence += [[
-            # SelfAttention2d(nf_prev),
+            SelfAttention2d(nf_prev),
             SNConv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
             norm_layer(nf),
             nn.LeakyReLU(0.2, True)
