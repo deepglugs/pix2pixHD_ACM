@@ -6,9 +6,22 @@ from torch.autograd import Variable
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+from data.base_dataset import get_params, get_transform
 
 # TODO: is there a generic autocast?
 from torch.cuda.amp import autocast
+
+
+def batch_transform(batch, transform):
+    images = []
+    for image in batch:
+        images.append(transform(image))
+
+    if len(images) == 1:
+        return torch.tensor(images[0]).view(*batch.size()).to(batch.device)
+
+    return torch.stack(images).to(batch.device)
+
 
 class Pix2PixHDModel(BaseModel):
     def name(self):
@@ -138,7 +151,8 @@ class Pix2PixHDModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(
                 params, lr=opt.lr, betas=(opt.beta1, 0.999))
 
-    def encode_input(self, label_map, inst_map=None, real_image=None, feat_map=None, infer=False):
+    def encode_input(self, label_map, inst_map=None, real_image=None, 
+                     feat_map=None, infer=False):
         if self.opt.label_nc == 0:
             input_label = label_map.data.to(self.opt.device)
         else:
@@ -206,6 +220,20 @@ class Pix2PixHDModel(BaseModel):
             else:
                 fake_image = self.netG.forward(input_concat)
 
+        input_concat_aug = input_concat
+        real_image_aug = real_image
+        fake_image_aug = fake_image
+
+        if self.opt.ada:
+            params = get_params(self.opt, (self.opt.fineSize, self.opt.fineSize))
+            transform = get_transform(self.opt, params, 
+                                      is_aug=True)
+
+            fake_image_aug = batch_transform(fake_image, transform)
+            real_image_aug = batch_transform(real_image, transform)
+            input_concat_aug = batch_transform(input_label, transform)
+
+
         # TODO: send labels to discriminator as well
         if self.opt.cond:
 
@@ -226,21 +254,21 @@ class Pix2PixHDModel(BaseModel):
             # print(input_concat.size())
 
             input_label = torch.cat(
-                (v, input_concat), dim=1)
+                (v, input_concat_aug), dim=1)
 
         with autocast(enabled=self.opt.fp16):
             # Fake Detection and Loss
             pred_fake_pool = self.discriminate(
-                input_label, fake_image, use_pool=True)
+                input_label, fake_image_aug, use_pool=True)
             loss_D_fake = self.criterionGAN(pred_fake_pool, False)
 
             # Real Detection and Loss
-            pred_real = self.discriminate(input_label, real_image)
+            pred_real = self.discriminate(input_label, real_image_aug)
             loss_D_real = self.criterionGAN(pred_real, True)
 
             # GAN loss (Fake Passability Loss)
             pred_fake = self.netD.forward(
-                torch.cat((input_label, fake_image), dim=1))
+                torch.cat((input_label, fake_image_aug), dim=1))
             loss_G_GAN = self.criterionGAN(pred_fake, True)
 
             # GAN feature matching loss
@@ -261,7 +289,8 @@ class Pix2PixHDModel(BaseModel):
                     fake_image, real_image) * self.opt.lambda_feat
 
             # Only return the fake_B image if necessary to save BW
-            return [self.loss_filter(loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake), None if not infer else fake_image]
+            return [self.loss_filter(loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake), 
+                    None if not infer else fake_image]
 
     def inference(self, label, inst, image=None):
         # Encode Inputs

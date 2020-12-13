@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 import numpy as np
 import random
 import cv2
-
+import util.util as util
 
 class BaseDataset(data.Dataset):
     def __init__(self):
@@ -15,6 +15,15 @@ class BaseDataset(data.Dataset):
 
     def initialize(self, opt):
         pass
+
+global_sample_index = 0
+
+
+def snapshot_img(img):
+    global global_sample_index
+    Image.fromarray(util.tensor2im(img)).save(f"samples/sample{global_sample_index}.png")
+    global_sample_index +=1
+    return img
 
 
 def get_params(opt, size):
@@ -41,14 +50,34 @@ def get_params(opt, size):
 
     landscape = random.random() < opt.crop_prob
 
+    rotate = random.randint(0, 359)
+
+    erase = random.random() > 0.5
+    jitter = random.random() > 0.5
+
     return {"random_load_size": (rand_w, rand_h),
             'crop_pos': (x, y),
             'flip': flip,
-            "landscape": landscape}
+            "landscape": landscape,
+            "rotate": rotate,
+            "jitter": jitter,
+            "erase": {"enabled": erase,
+                      "i": random.randint(0, np.maximum(0, new_w - opt.fineSize)),
+                      "j": random.randint(0, np.maximum(0, new_h - opt.fineSize)),
+                      "h": random.randint(5, 20),
+                      "w": random.randint(5, 20)
+                      }}
 
 
-def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False):
+def get_transform(opt, params,
+                  method=Image.BICUBIC,
+                  normalize=True,
+                  is_A=False,
+                  is_aug=False):
     transform_list = []
+
+    if is_aug:
+        transform_list.append(transforms.ToPILImage())
 
     did_crop_resize = False
 
@@ -112,9 +141,34 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, is_A=False)
 
     transform_list += [transforms.ToTensor()]
 
+    if is_aug:
+        rotate = transforms.Lambda(
+            lambda img: transforms.functional.rotate(img, params["rotate"]))
+        erase = transforms.Lambda(
+            lambda img: transforms.functional.erase(img, params["erase"]['i'],
+                                                    params["erase"]['j'],
+                                                    params["erase"]['h'],
+                                                    params["erase"]['w'],
+                                                    0))
+
+        if params["jitter"]:
+            # transform_list.append(transforms.ColorJitter(0.5, 0.5, 0.5))
+            pass
+
+        transform_list.append(rotate)
+
+        if params["erase"]["enabled"]:
+            transform_list.append(erase)
+
+        transform_list.append(transforms.Lambda(
+            lambda img: __flip(img, params['flip'])))
+
+        # transform_list.append(transforms.Lambda(snapshot_img))
+
     if normalize:
         transform_list += [transforms.Normalize((0.5, 0.5, 0.5),
                                                 (0.5, 0.5, 0.5))]
+
     return transforms.Compose(transform_list)
 
 
@@ -259,5 +313,5 @@ def __crop(img, pos, size, size_w=None):
 
 def __flip(img, flip):
     if flip:
-        return img.transpose(Image.FLIP_LEFT_RIGHT)
+        return transforms.functional.hflip(img)
     return img
