@@ -15,7 +15,7 @@ from torch.cuda.amp import autocast
 def batch_transform(batch, transform):
     images = []
     for image in batch:
-        images.append(transform(image))
+        images.append(transform(image.cpu()))
 
     if len(images) == 1:
         return torch.tensor(images[0]).view(*batch.size()).to(batch.device)
