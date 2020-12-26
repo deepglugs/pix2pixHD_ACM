@@ -18,6 +18,7 @@ from torchgan.layers import SelfAttention2d
 
 def weights_init(m):
     classname = m.__class__.__name__
+    return
     if classname.find('Conv') != -1:
         m.weight.data.normal_(0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
