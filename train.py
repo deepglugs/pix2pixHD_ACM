@@ -96,6 +96,11 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         # update generator weights
         optimizer_G.zero_grad()
         amp_scaler.scale(loss_G).backward()
+
+        if opt.clip:
+            torch.nn.utils.clip_grad_norm_(model.module.params_G,
+                                           1)
+
         amp_scaler.step(optimizer_G)
         # if opt.fp16:
         #    with amp.scale_loss(loss_G, optimizer_G) as scaled_loss:

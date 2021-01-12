@@ -112,8 +112,11 @@ class Pix2PixHDModel(BaseModel):
             self.criterionGAN = networks.GANLoss(
                 use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
             self.criterionFeat = torch.nn.L1Loss()
+
             if not opt.no_vgg_loss:
-                self.criterionVGG = networks.VGGLoss(self.gpu_ids)
+                self.criterionVGG = networks.VGGLoss(self.gpu_ids, 
+                                                     opt.vgg19_weights,
+                                                     opt.vocab_size)
 
             # Names so we can breakout loss
             self.loss_names = self.loss_filter(
@@ -143,6 +146,9 @@ class Pix2PixHDModel(BaseModel):
                 params = list(self.netG.parameters())
             if self.gen_features:
                 params += list(self.netE.parameters())
+
+            self.params_G = params
+
             self.optimizer_G = torch.optim.Adam(
                 params, lr=opt.lr_G, betas=(opt.beta1, 0.999))
 

@@ -260,9 +260,9 @@ class GANLoss(nn.Module):
 
 
 class VGGLoss(nn.Module):
-    def __init__(self, gpu_ids):
+    def __init__(self, gpu_ids, vgg19_weights=None, vocab_size=512):
         super(VGGLoss, self).__init__()
-        self.vgg = Vgg19().cuda()
+        self.vgg = Vgg19(vgg19_weights=vgg19_weights, vocab_size=vocab_size).cuda()
         self.criterion = nn.L1Loss()
         self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]
 
@@ -646,10 +646,28 @@ class NLayerDiscriminator(nn.Module):
             return self.model(input)
 
 
+def chop_head(model, num_classes):
+    num_features = model.classifier[6].in_features
+    features = list(model.classifier.children())[:-1]  # Remove last layer
+    features.extend([torch.nn.Linear(num_features, num_classes)])  # Add our layer with 4 outputs
+    model.classifier = torch.nn.Sequential(*features)  # Replace the model classifier
+    print(model)
+
+    return model
+
+
 class Vgg19(torch.nn.Module):
-    def __init__(self, requires_grad=False):
+    def __init__(self, requires_grad=False, vgg19_weights=None, vocab_size=512):
         super(Vgg19, self).__init__()
-        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        if vgg19_weights is None:
+            vgg_pretrained_features = models.vgg19(pretrained=True).features
+        else:
+            vgg19 = models.vgg19(pretrained=False)
+            vgg19 = chop_head(vgg19, vocab_size)
+            state_dict = torch.load(vgg19_weights)
+            vgg19.load_state_dict(state_dict)
+            vgg_pretrained_features = vgg19.features
+
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()

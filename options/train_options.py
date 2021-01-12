@@ -22,6 +22,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         self.parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
         self.parser.add_argument('--lr_G', type=float, default=0.0001, help='initial learning rate for adam')
+        self.parser.add_argument('--clip', action='store_true', help='use gradient clipping')
 
         # for discriminators        
         self.parser.add_argument('--num_D', type=int, default=2, help='number of discriminators to use')
@@ -33,5 +34,6 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--no_lsgan', action='store_true', help='do *not* use least square GAN, if false, use vanilla GAN')
         self.parser.add_argument('--pool_size', type=int, default=0, help='the size of image buffer that stores previously generated images')
         self.parser.add_argument('--ada', action='store_true', help='use ADA')
+        self.parser.add_argument('--vgg19_weights', default=None, help='weights for vgg loss')
 
         self.isTrain = True

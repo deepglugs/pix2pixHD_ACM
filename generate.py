@@ -284,6 +284,7 @@ def do_generate(opt, model=None):
     if opt.vocab_size is None and vocab is not None:
         opt.vocab_size = len(vocab)
 
+    print(f"Image source {img_file}")
     print(f"Generating {len(img_files)} images...")
 
     for img_file in img_files:
